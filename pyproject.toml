@@ -1,0 +1,37 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ruranges"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Rust",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+
+authors = [
+    { name = "Endre Bakken Stovner", email = "endrebak@pm.me" }
+]
+
+# Tells Maturin how to build Python bindings
+bindings = "pyo3"
+# Produce a source distribution in addition to wheels
+sdist = true
+# Manylinux policy to ensure wide compatibility for Linux wheels
+manylinux = "2014"
+# Optionally strip debug symbols from the final wheels
+strip = true
+
+[project.urls]
+# Adjust these for your project
+Homepage = "https://github.com/yourname/ruranges"
+Repository = "https://github.com/yourname/ruranges"
