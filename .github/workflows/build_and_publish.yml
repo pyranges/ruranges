@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,10 +25,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        # This ensures we have the latest stable Rust available on each runner.
+        # Installs the latest stable Rust.
 
       - name: Ensure Cargo.lock is present
         run: |
@@ -44,7 +44,6 @@ jobs:
           command: build
           manylinux: '2014'
           args: '--release --sdist --out dist'
-        # Produces manylinux2014 wheels and an sdist on Linux.
 
       - name: Build wheels (macOS, Windows)
         if: runner.os != 'Linux'
@@ -52,10 +51,9 @@ jobs:
         with:
           command: build
           args: '--release --out dist'
-        # No sdist here, to avoid duplicates.
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.os }}
           path: dist/
@@ -65,19 +63,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+
     steps:
       - name: Download artifacts (Linux wheels & sdist)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist-ubuntu-latest
           path: dist
+
       - name: Download artifacts (macOS wheels)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist-macos-latest
           path: dist
+
       - name: Download artifacts (Windows wheels)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist-windows-latest
           path: dist
