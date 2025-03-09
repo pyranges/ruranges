@@ -18,4 +18,3 @@ pub mod tile;
 pub mod bindings;
 pub mod numpy_bindings;
 
-pub mod io;

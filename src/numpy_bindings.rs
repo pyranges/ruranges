@@ -31,9 +31,9 @@ use crate::subtract::sweep_line_subtract;
 use crate::tile::{tile, window};
 use crate::{outside_bounds, sorts};
 
-use crate::bindings::polars_bindings::{
-    self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
-};
+// use crate::bindings::polars_bindings::{
+//     self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
+// };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum OverlapType {
@@ -818,9 +818,9 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
 
-    m.add_function(wrap_pyfunction!(sweep_line_overlaps_set1_polars, m)?)?;
-    m.add_function(wrap_pyfunction!(cluster_polars, m)?)?;
-    m.add_function(wrap_pyfunction!(chromsweep_polars, m)?)?;
+    //m.add_function(wrap_pyfunction!(sweep_line_overlaps_set1_polars, m)?)?;
+    //m.add_function(wrap_pyfunction!(cluster_polars, m)?)?;
+    //m.add_function(wrap_pyfunction!(chromsweep_polars, m)?)?;
 
     // m.add_function(wrap_pyfunction!(nearest_next_intervals_numpy, m)?)?;
     // m.add_function(wrap_pyfunction!(nearest_previous_intervals_numpy, m)?)?;
