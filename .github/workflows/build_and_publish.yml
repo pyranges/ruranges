@@ -32,9 +32,18 @@ jobs:
           brew update
           brew install openssl@1.1
 
-      - name: Install Dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        run: choco install -y strawberryperl nasm
+        # **Windows-only: Install OpenSSL**
+      - name: Install OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        run: choco install openssl -y
+
+      # **Windows-only: Set OpenSSL environment variables**
+      - name: Configure OpenSSL Path (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" >> $Env:GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include" >> $Env:GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib" >> $Env:GITHUB_ENV
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
