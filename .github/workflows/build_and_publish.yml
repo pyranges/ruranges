@@ -1,7 +1,6 @@
 name: Build and Publish Python package (Maturin)
 
 on:
-  # Trigger on manual dispatch or when pushing a tag (e.g. v1.0.0).
   workflow_dispatch:
   push:
     tags:
@@ -28,15 +27,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        # Installs the latest stable Rust.
 
       - name: Ensure Cargo.lock is present
+        shell: bash
         run: |
           if [ ! -f Cargo.lock ]; then
             echo "Error: Cargo.lock not found. Please commit Cargo.lock to the repo for reproducible builds."
             exit 1
           fi
-        shell: bash
 
       - name: Build wheels (Linux + sdist)
         if: runner.os == 'Linux'
@@ -44,6 +42,7 @@ jobs:
         with:
           command: build
           manylinux: '2014'
+          docker-image: 'ghcr.io/pyo3/maturin/manylinux2014_x86_64_openssl30:latest'
           args: '--release --sdist --out dist'
 
       - name: Build wheels (macOS, Windows)
