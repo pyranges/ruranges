@@ -36,6 +36,7 @@ jobs:
             echo "Error: Cargo.lock not found. Please commit Cargo.lock to the repo for reproducible builds."
             exit 1
           fi
+        shell: bash
 
       - name: Build wheels (Linux + sdist)
         if: runner.os == 'Linux'
