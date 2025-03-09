@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ruranges"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
@@ -22,13 +22,9 @@ authors = [
     { name = "Endre Bakken Stovner", email = "endrebak@pm.me" }
 ]
 
-# Tells Maturin how to build Python bindings
 bindings = "pyo3"
-# Produce a source distribution in addition to wheels
 sdist = true
-# Manylinux policy to ensure wide compatibility for Linux wheels
-manylinux = "2014"
-# Optionally strip debug symbols from the final wheels
+manylinux = "manylinux_2_28"
 strip = true
 
 [project.urls]
