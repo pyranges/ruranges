@@ -12,7 +12,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-dynamic = ["version"]
+version = "0.0.1"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
