@@ -28,6 +28,4 @@ manylinux = "manylinux_2_28"
 strip = true
 
 [project.urls]
-# Adjust these for your project
-Homepage = "https://github.com/yourname/ruranges"
-Repository = "https://github.com/yourname/ruranges"
+Repository = "https://github.com/pyranges/ruranges"
