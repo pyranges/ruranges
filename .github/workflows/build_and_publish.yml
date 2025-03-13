@@ -1,120 +1,46 @@
 name: Build and Publish Wheels
 
-on:
-  workflow_dispatch:
+ on:
+   workflow_dispatch:
 
-jobs:
-  build-linux:
-    # -------------------
-    # Linux build job
-    # -------------------
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+ jobs:
+   build:
+     runs-on: ubuntu-latest
+     steps:
+       - name: Checkout code
+         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
+       - name: Set up Python
+         uses: actions/setup-python@v4
+         with:
+           python-version: "3.12"
 
-      - name: Set up QEMU (for ARM64 emulation)
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: "linux/arm64/v8"
+       - name: Set up QEMU (for ARM64 emulation)
+         uses: docker/setup-qemu-action@v3
+         with:
+           platforms: "linux/arm64/v8"
 
-      - name: Install build tools (Maturin & cibuildwheel)
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install maturin cibuildwheel
+       - name: Install build tools (Maturin & cibuildwheel)
+         run: |
+           python -m pip install --upgrade pip
+           python -m pip install maturin cibuildwheel
 
-      - name: Build Linux wheels
-        env:
-          CIBW_ARCHS: "x86_64 aarch64"         # target architectures
-          CIBW_BUILD: "cp312-* cp313-*"        # build only CPython 3.12 and 3.13
-          CIBW_SKIP: "pp* *-musllinux_*"       # skip PyPy and musllinux builds
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
-          CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc
-        run: |
-          python -m cibuildwheel --platform linux --output-dir dist
+       - name: Build wheels (ManyLinux 2_28 for x86_64 & aarch64)
+         env:
+           CIBW_ARCHS: "x86_64 aarch64"                   # target architectures
+           CIBW_BUILD: "cp312-* cp313-*"                  # build only CPython 3.12 and 3.13
+           CIBW_SKIP: "pp* *-musllinux_*"                 # skip PyPy and musllinux builds
+           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28    # use latest ManyLinux 2_28 image (x86_64)
+           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28   # use latest ManyLinux 2_28 image (aarch64)
+           CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc  # install Rust toolchain in container
+           CIBW_BUILD_SDIST: true
+         run: python -m cibuildwheel --platform linux --output-dir dist
 
-      - name: Upload Linux wheels as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: linux-wheels
-          path: dist/*.whl
-          # include sdist if you also want to publish .tar.gz later
-          # e.g. "dist/*.whl dist/*.tar.gz"
-
-  build-macos:
-    # -------------------
-    # macOS build job
-    # -------------------
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-
-      - name: Install build tools (Maturin & cibuildwheel)
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install maturin cibuildwheel
-
-      - name: Build macOS wheels
-        env:
-          # If you want to build for both x86_64 and arm64 macs (Universal2 wheels):
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_BUILD: "cp312-* cp313-*"
-          CIBW_SKIP: "pp*"                     # skip PyPy
-          # Optionally install Rust etc. via brew if needed:
-          # CIBW_BEFORE_ALL_MACOS: brew install rust
-        run: |
-          python -m cibuildwheel --platform macos --output-dir dist
-
-      - name: Upload macOS wheels as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: macos-wheels
-          path: dist/*.whl
-          # include sdist if you also want to publish .tar.gz later
-          # e.g. "dist/*.whl dist/*.tar.gz"
-
-  publish:
-    # -------------------
-    # Publish job
-    # Waits for both builds to finish before publishing
-    # -------------------
-    runs-on: ubuntu-latest
-    needs: [build-linux, build-macos]
-    steps:
-      - name: Download Linux wheels
-        uses: actions/download-artifact@v3
-        with:
-          name: linux-wheels
-          path: dist-linux
-
-      - name: Download macOS wheels
-        uses: actions/download-artifact@v3
-        with:
-          name: macos-wheels
-          path: dist-macos
-
-      - name: Combine wheels into one directory
-        run: |
-          mkdir dist
-          cp dist-linux/* dist/
-          cp dist-macos/* dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          packages: "dist/*.whl dist/*.tar.gz"
-
+       - name: Publish to PyPI
+         uses: pypa/gh-action-pypi-publish@release/v1
+         with:
+           user: ${{ secrets.PYPI_USER }}
+           password: ${{ secrets.PYPI_PROD_PASSWORD }}
+           user: __token__
+           password: ${{ secrets.PYPI_API_TOKEN }}
+           packages: "dist/*.whl dist/*.tar.gz"
