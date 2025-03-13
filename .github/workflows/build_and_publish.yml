@@ -1,46 +1,46 @@
 name: Build and Publish Wheels
 
- on:
-   workflow_dispatch:
+on:
+  workflow_dispatch:
 
- jobs:
-   build:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Checkout code
-         uses: actions/checkout@v3
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-       - name: Set up Python
-         uses: actions/setup-python@v4
-         with:
-           python-version: "3.12"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
 
-       - name: Set up QEMU (for ARM64 emulation)
-         uses: docker/setup-qemu-action@v3
-         with:
-           platforms: "linux/arm64/v8"
+      - name: Set up QEMU (for ARM64 emulation)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: "linux/arm64/v8"
 
-       - name: Install build tools (Maturin & cibuildwheel)
-         run: |
-           python -m pip install --upgrade pip
-           python -m pip install maturin cibuildwheel
+      - name: Install build tools (Maturin & cibuildwheel)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install maturin cibuildwheel
 
-       - name: Build wheels (ManyLinux 2_28 for x86_64 & aarch64)
-         env:
-           CIBW_ARCHS: "x86_64 aarch64"                   # target architectures
-           CIBW_BUILD: "cp312-* cp313-*"                  # build only CPython 3.12 and 3.13
-           CIBW_SKIP: "pp* *-musllinux_*"                 # skip PyPy and musllinux builds
-           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28    # use latest ManyLinux 2_28 image (x86_64)
-           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28   # use latest ManyLinux 2_28 image (aarch64)
-           CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc  # install Rust toolchain in container
-           CIBW_BUILD_SDIST: true
-         run: python -m cibuildwheel --platform linux --output-dir dist
+      - name: Build wheels (ManyLinux 2_28 for x86_64 & aarch64)
+        env:
+          CIBW_ARCHS: "x86_64 aarch64"                   # target architectures
+          CIBW_BUILD: "cp312-* cp313-*"                  # build only CPython 3.12 and 3.13
+          CIBW_SKIP: "pp* *-musllinux_*"                 # skip PyPy and musllinux builds
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28    # use latest ManyLinux 2_28 image (x86_64)
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28   # use latest ManyLinux 2_28 image (aarch64)
+          CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc  # install Rust toolchain in container
+          CIBW_BUILD_SDIST: true
+        run: python -m cibuildwheel --platform linux --output-dir dist
 
-       - name: Publish to PyPI
-         uses: pypa/gh-action-pypi-publish@release/v1
-         with:
-           user: ${{ secrets.PYPI_USER }}
-           password: ${{ secrets.PYPI_PROD_PASSWORD }}
-           user: __token__
-           password: ${{ secrets.PYPI_API_TOKEN }}
-           packages: "dist/*.whl dist/*.tar.gz"
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: ${{ secrets.PYPI_USER }}
+          password: ${{ secrets.PYPI_PROD_PASSWORD }}
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages: "dist/*.whl dist/*.tar.gz"
