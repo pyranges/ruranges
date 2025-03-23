@@ -13,9 +13,8 @@ radsort = "0.1.1"
 rustc-hash = "2.1.0"
 num-traits = "0.2.19"
 
-pyo3 = { version = "0.23.4", optional = false }
-# pyo3-polars = { version = "0.20.0", optional = false }
-numpy = { version = "0.23", optional = false }
+pyo3 = { version = "0.24.0", features = ["extension-module"], optional = false }
+numpy = { version = "0.24", optional = false }
 
 # polars = { version = "0.46.0", features = ["csv", "lazy", "dtype-categorical"], optional = false}
 # rust-htslib = { version = "0.49.0", optional = false}

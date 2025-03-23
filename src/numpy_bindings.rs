@@ -25,7 +25,7 @@ use crate::outside_bounds::outside_bounds;
 // use crate::nearest::nearest;
 use crate::overlaps::{self, count_overlaps};
 use crate::ruranges_structs::OverlapPair;
-use crate::spliced_subsequence::spliced_subseq;
+use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::subtract::sweep_line_subtract;
 use crate::tile::{tile, window};
@@ -565,6 +565,34 @@ pub fn spliced_subsequence_numpy(
     ))
 }
 
+#[pyfunction]
+#[pyo3(signature = (chrs, starts, ends, strand_flags, starts_subseq, ends_subseq, force_plus_strand = false))]
+pub fn spliced_subsequence_per_row_numpy(
+    chrs: PyReadonlyArray1<u32>,
+    starts: PyReadonlyArray1<i64>,
+    ends: PyReadonlyArray1<i64>,
+    strand_flags: PyReadonlyArray1<bool>,
+    starts_subseq: PyReadonlyArray1<i64>,
+    ends_subseq: PyReadonlyArray1<i64>,
+    force_plus_strand: bool,
+    py: Python,
+) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
+    let (outidx, outstarts, outends) = spliced_subseq_per_row(
+        chrs.as_slice()?,
+        starts.as_slice()?,
+        ends.as_slice()?,
+        strand_flags.as_slice()?,
+        starts_subseq.as_slice()?,
+        ends_subseq.as_slice()?,
+        force_plus_strand,
+    );
+    Ok((
+        outidx.into_pyarray(py).to_owned().into(),
+        outstarts.into_pyarray(py).to_owned().into(),
+        outends.into_pyarray(py).to_owned().into(),
+    ))
+}
+
 // #[pyfunction]
 // #[pyo3(signature = (chrs, starts, ends, idxs, strand_flags, start, end = None, force_plus_strand = false))]
 // pub fn subsequence_numpy(
@@ -814,6 +842,7 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(subtract_numpy, m)?)?;
     //     m.add_function(wrap_pyfunction!(subsequence_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(merge_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
