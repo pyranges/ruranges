@@ -9,11 +9,12 @@ GroupIdInt = TypeVar("GroupIdInt", np.int8, np.int16, np.int32)
 # Define another type variable for the range arrays (starts/ends), which can be any integer.
 RangeInt = TypeVar("RangeInt", bound=np.integer)
 
+
 def overlaps(
     *,
-    starts:  NDArray[RangeInt],
+    starts: NDArray[RangeInt],
     ends: NDArray[RangeInt],
-    starts2:  NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
     ends2: NDArray[RangeInt],
     groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
@@ -21,20 +22,71 @@ def overlaps(
     contained: bool = False,
     slack: int = 0,
 ) -> tuple[GroupIdInt, GroupIdInt]:
+    """
+    Compute overlapping intervals between two sets of ranges.
 
-    from ruranges import chromsweep_numpy  # type: ignore[attr-defined] 
+    The four mandatory arrays (starts, ends, starts2, ends2) must all have the same length.
+    If one of groups or groups2 is provided, then both must be provided and have the same length
+    as the other arrays.
+
+    The function returns a tuple (idx1, idx2) of numpy arrays, where each pair (idx1[i], idx2[i])
+    indicates an overlapping interval between the first and second set.
+
+    Examples
+    --------
+    Without groups:
+
+    >>> import numpy as np
+    >>> from numpy.typing import NDArray
+    >>> RangeInt = np.int32
+    >>> GroupIdInt = np.int32
+    >>> starts = np.array([1, 10], dtype=RangeInt)
+    >>> ends   = np.array([5, 15], dtype=RangeInt)
+    >>> starts2 = np.array([3, 20], dtype=RangeInt)
+    >>> ends2   = np.array([6, 25], dtype=RangeInt)
+    >>> result = overlaps(starts=starts, ends=ends, starts2=starts2, ends2=ends2)
+    >>> # In this hypothetical example only the first intervals overlap.
+    >>> result
+    (array([0], dtype=uint32), array([0], dtype=uint32))
+
+    With groups:
+
+    >>> starts = np.array([1, 1], dtype=RangeInt)
+    >>> ends   = np.array([5, 5], dtype=RangeInt)
+    >>> starts2 = np.array([3, 20], dtype=RangeInt)
+    >>> ends2   = np.array([6, 25], dtype=RangeInt)
+    >>> groups = np.array([1, 2], dtype=GroupIdInt)
+    >>> groups2 = np.array([1, 2], dtype=GroupIdInt)
+    >>> result = overlaps(starts=starts, ends=ends, starts2=starts2, ends2=ends2,
+    ...                   groups=groups, groups2=groups2)
+    >>> # Here the algorithm checks overlaps only within the same group.
+    >>> result
+    (array([0], dtype=uint32), array([0], dtype=uint32))
+
+    Additional parameters such as `multiple`, `contained`, and `slack` control the overlap
+    behavior; see the documentation for details.
+
+    Raises
+    ------
+    ValueError
+        If any of the length checks fail or if only one of groups/groups2 is provided.
+    """
+
+    from _ruranges import chromsweep_numpy  # type: ignore[attr-defined]
 
     length = check_array_lengths(starts, ends, starts2, ends2, groups, groups2)
-    
+
     groups_validated, groups2_validated = validate_groups(length, groups, groups2)
 
-    _dtype_groupids = check_and_return_common_type_2(groups_validated, groups2_validated)
+    _dtype_groupids = check_and_return_common_type_2(
+        groups_validated, groups2_validated
+    )
     _dtype_ranges = check_and_return_common_type_4(starts, ends, starts2, ends2)
 
     if slack:
         check_min_max_with_slack(starts, ends, slack, _dtype_ranges)
 
-    idx1, idx2 = chromsweep_numpy( 
+    idx1, idx2 = chromsweep_numpy(
         groups_validated,
         starts.astype(np.int64),
         ends.astype(np.int64),
@@ -47,6 +99,7 @@ def overlaps(
     )
 
     return idx1.astype(_dtype_groupids), idx2.astype(_dtype_groupids)
+
 
 def check_min_max_with_slack(
     starts: np.ndarray | list,
@@ -70,7 +123,7 @@ def check_min_max_with_slack(
     adjusted_max = arr_ends.max() + slack
 
     # Depending on whether it's an integer or floating dtype, get the min/max
-    dtype_info: np.finfo[np.floating[Any]] | np.iinfo[Any] 
+    dtype_info: np.finfo[np.floating[Any]] | np.iinfo[Any]
     if target_dtype.kind == "i":
         dtype_info = np.iinfo(target_dtype)
     elif target_dtype.kind == "f":
@@ -99,7 +152,9 @@ def check_min_max_with_slack(
         raise ValueError(msg)
 
 
-def check_and_return_common_type_2(starts: np.ndarray | list, ends: np.ndarray | list) -> np.dtype | type:
+def check_and_return_common_type_2(
+    starts: np.ndarray | list, ends: np.ndarray | list
+) -> np.dtype | type:
     """Check that `starts` and `ends` share the same type/dtype.
     If they do not, prints only the mismatching types and raises a TypeError.
     """
@@ -114,7 +169,10 @@ def check_and_return_common_type_2(starts: np.ndarray | list, ends: np.ndarray |
 
 
 def check_and_return_common_type_4(
-    start1: np.ndarray | list, end1: np.ndarray | list, start2: np.ndarray | list, end2: np.ndarray | list
+    start1: np.ndarray | list,
+    end1: np.ndarray | list,
+    start2: np.ndarray | list,
+    end2: np.ndarray | list,
 ) -> np.dtype | type:
     """Check that start1, end1, start2, and end2 all share the same type/dtype.
     If they do not, prints only the mismatching types and raises a TypeError.
@@ -131,6 +189,7 @@ def check_and_return_common_type_4(
 
     return types_found.pop()
 
+
 def check_array_lengths(
     starts: NDArray[RangeInt],
     ends: NDArray[RangeInt],
@@ -141,27 +200,31 @@ def check_array_lengths(
 ) -> int:
     """
     Checks that all input arrays have the same length.
-    
+
     - `starts`, `ends`, `starts2`, and `ends2` must have the same length.
     - Either both `groups` and `groups2` are provided or both are None.
     - If provided, `groups` and `groups2` must also have the same length.
-    
+
     Returns:
         The common length of the arrays.
-    
+
     Raises:
         ValueError: If any of the length checks fail.
     """
     # Check lengths of the mandatory arrays
     n = len(starts)
     if len(ends) != n or len(starts2) != n or len(ends2) != n:
-        raise ValueError("starts, ends, starts2, and ends2 must all have the same length.")
-    
+        raise ValueError(
+            "starts, ends, starts2, and ends2 must all have the same length."
+        )
+
     # If groups are provided, check their lengths as well.
     if groups is not None:
         if len(groups) != n or len(groups2) != n:
-            raise ValueError("groups and groups2 must have the same length as the other arrays.")
-    
+            raise ValueError(
+                "groups and groups2 must have the same length as the other arrays."
+            )
+
     return n
 
 
@@ -172,12 +235,14 @@ def validate_groups(
 ) -> tuple[NDArray[GroupIdInt], NDArray[GroupIdInt]]:
     # If one of groups is provided, both must be provided.
     if (groups is None) != (groups2 is None):
-        raise ValueError("Either both groups and groups2 must be provided or both must be None.")
+        raise ValueError(
+            "Either both groups and groups2 must be provided or both must be None."
+        )
 
     if groups is None:
-        return np.zeros(length, dtype=np.int32), np.zeros(length, dtype=np.int32)
+        return np.zeros(length, dtype=np.uint32), np.zeros(length, dtype=np.uint32)
 
-    return groups, groups2
+    return groups.astype(np.uint32), groups2.astype(np.uint32)
 
 
 def _get_type_info(x: np.ndarray | list) -> np.dtype | type:
@@ -187,4 +252,3 @@ def _get_type_info(x: np.ndarray | list) -> np.dtype | type:
         msg = "Cannot determine type from an empty list."
         raise ValueError(msg)
     return type(x[0])
-

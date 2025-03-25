@@ -24,7 +24,7 @@ use crate::nearest::nearest;
 use crate::outside_bounds::outside_bounds;
 // use crate::nearest::nearest;
 use crate::overlaps::{self, count_overlaps};
-use crate::ruranges_structs::OverlapPair;
+use crate::ruranges_structs::{OverlapPair, PositionType};
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::subtract::sweep_line_subtract;
@@ -593,28 +593,6 @@ pub fn spliced_subsequence_per_row_numpy(
     ))
 }
 
-// #[pyfunction]
-// #[pyo3(signature = (chrs, starts, ends, idxs, strand_flags, start, end = None, force_plus_strand = false))]
-// pub fn subsequence_numpy(
-//     chrs: PyReadonlyArray1<i64>,
-//     starts: PyReadonlyArray1<i64>,
-//     ends: PyReadonlyArray1<i64>,
-//     idxs: PyReadonlyArray1<i64>,
-//     strand_flags: PyReadonlyArray1<bool>,
-//     start: i64,
-//     end: Option<i64>,
-//     force_plus_strand: bool,
-//     py: Python,
-// ) -> PyResult<(Py<PyArray1<i64>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-//     let (outidx, outstarts, outends) = crate::subsequence::subseq(chrs.as_slice()?, starts.as_slice()?, ends.as_slice()?, idxs.as_slice()?, strand_flags.as_slice()?, start, end, force_plus_strand);
-//     Ok(
-//         (
-//             outidx.into_pyarray(py).to_owned().into(),
-//             outstarts.into_pyarray(py).to_owned().into(),
-//             outends.into_pyarray(py).to_owned().into(),
-//         )
-//     )
-// }
 
 #[pyfunction]
 pub fn complement_overlaps_numpy(
@@ -825,7 +803,8 @@ pub fn genome_bounds_numpy(
 }
 
 #[pymodule]
-fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pyo3(name = "_ruranges")]
+fn _ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chromsweep_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;
