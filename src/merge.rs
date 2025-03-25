@@ -1,21 +1,21 @@
 use crate::{ruranges_structs::PositionType, sorts};
 
 pub fn sweep_line_merge<T: PositionType>(
-    chrs: &[u32],
+    groups: &[u32],
     starts: &[T],
     ends: &[T],
     slack: T,
 ) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<u32>) {
-    let mut out_indices = Vec::with_capacity(chrs.len());
-    let mut out_starts = Vec::with_capacity(chrs.len());
-    let mut out_ends = Vec::with_capacity(chrs.len());
-    let mut counts = Vec::with_capacity(chrs.len());
+    let mut out_indices = Vec::with_capacity(groups.len());
+    let mut out_starts = Vec::with_capacity(groups.len());
+    let mut out_ends = Vec::with_capacity(groups.len());
+    let mut counts = Vec::with_capacity(groups.len());
 
-    if chrs.is_empty() {
+    if groups.is_empty() {
         return (out_indices, out_starts, out_ends, counts);
     };
 
-    let events = sorts::build_sorted_events_single_collection(chrs, starts, ends, slack);
+    let events = sorts::build_sorted_events_single_collection(groups, starts, ends, slack);
 
     let mut current_chr = events.first().unwrap().chr;
     let mut current_start: T = T::zero();

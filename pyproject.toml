@@ -4,6 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ruranges"
+dependencies = ["numpy"]
 requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -15,8 +16,8 @@ classifiers = [
 version = "0.0.3"
 
 [tool.maturin]
+module-name = "_ruranges"
 features = ["pyo3/extension-module"]
-
 
 authors = [
     { name = "Endre Bakken Stovner", email = "endrebak@pm.me" }
