@@ -35,25 +35,7 @@ use crate::{outside_bounds, sorts};
 //     self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
 // };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum OverlapType {
-    First,
-    Last,
-    All,
-}
 
-impl FromStr for OverlapType {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "all" => Ok(OverlapType::All),
-            "first" => Ok(OverlapType::First),
-            "last" => Ok(OverlapType::Last),
-            _ => Err("Invalid direction string"),
-        }
-    }
-}
 
 #[pyfunction]
 pub fn chromsweep_numpy(
@@ -75,72 +57,24 @@ pub fn chromsweep_numpy(
     let starts_slice2 = starts2.as_slice()?;
     let ends_slice2 = ends2.as_slice()?;
 
-    let overlap_type = OverlapType::from_str(overlap_type).unwrap();
-    let invert = overlap_type == OverlapType::Last;
-
-    let result = if overlap_type == OverlapType::All && !contained {
-        // The common, super-optimized case
-        overlaps::sweep_line_overlaps(
-            chrs_slice,
-            starts_slice,
-            ends_slice,
-            chrs_slice2,
-            starts_slice2,
-            ends_slice2,
-            slack,
-        )
-    } else {
-        if !contained {
-            let (sorted_starts, sorted_ends) = overlaps::compute_sorted_events(
-                chrs_slice,
-                starts_slice,
-                ends_slice,
-                slack,
-                invert,
-            );
-            let (sorted_starts2, sorted_ends2) =
-                overlaps::compute_sorted_events(chrs_slice2, starts_slice2, ends_slice2, 0, invert);
-
-            let mut pairs = overlaps::sweep_line_overlaps_overlap_pair(
-                &sorted_starts,
-                &sorted_ends,
-                &sorted_starts2,
-                &sorted_ends2,
-            );
-            keep_first_by_idx(&mut pairs);
-            pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-        } else {
-            let maxevents = overlaps::compute_sorted_maxevents(
-                chrs_slice,
-                starts_slice,
-                ends_slice,
-                chrs_slice2,
-                starts_slice2,
-                ends_slice2,
-                slack,
-                invert,
-            );
-            let mut pairs = overlaps::sweep_line_overlaps_containment(maxevents);
-            if overlap_type == OverlapType::All {
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-            } else {
-                keep_first_by_idx(&mut pairs);
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-            }
-        }
-    };
-
+    let (idx1, idx2) = overlaps::chromsweep_full(
+        chrs_slice,
+        starts_slice,
+        ends_slice,
+        chrs_slice2,
+        starts_slice2,
+        ends_slice2,
+        slack,
+        overlap_type,
+        contained,
+    );
     let res = Ok((
-        result.0.into_pyarray(py).to_owned().into(),
-        result.1.into_pyarray(py).to_owned().into(),
+        idx1.into_pyarray(py).to_owned().into(),
+        idx2.into_pyarray(py).to_owned().into(),
     ));
     res
 }
 
-pub fn keep_first_by_idx(pairs: &mut Vec<OverlapPair>) {
-    let mut seen_idx = FxHashSet::default();
-    pairs.retain(|pair| seen_idx.insert(pair.idx));
-}
 
 #[pyfunction]
 #[pyo3(signature = (*, chrs, starts, ends, chrs2, starts2, ends2, slack=0, k=1, include_overlaps=true, direction="any"))]

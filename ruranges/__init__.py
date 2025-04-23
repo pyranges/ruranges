@@ -154,69 +154,69 @@ def cluster(
     )
     return clusters, indices
 
-def complement(
-    *,
-    starts: NDArray[RangeInt],
-    ends: NDArray[RangeInt],
-    groups: NDArray[GroupIdInt] | None = None,
-    slack: int = 0,
-    chrom_len_ids:
-):
-    from _ruranges import cluster_numpy  # type: ignore[attr-defined]
-
-    groups_validated = validate_group(len(groups), groups)
-    check_lengths(groups_validated, starts, ends)
-
-    group_type = _get_type_info(groups_validated)
-    range_type = check_and_return_common_type_2(starts, ends)
-
-    if slack:
-        check_min_max_with_slack(starts, ends, slack, range_type)
-
-    clusters, indices = cluster_numpy(
-        groups_validated,
-        starts.astype(np.int64),
-        ends.astype(np.int64),
-        slack=slack,
-    )
-    return clusters, indices
-
-    chrs, start, end, idxs = complement_numpy(
-        chrs=factorized.to_numpy(),
-        starts=df.Start.to_numpy(),
-        ends=df.End.to_numpy(),
-        slack=slack,
-        chrom_len_ids=chrom_len_ids,
-        chrom_lens=chrom_lens,
-        include_first_interval=include_first_interval,
-    )
-
-
-
-def boundary(
-    *,
-    starts: NDArray[RangeInt],
-    ends: NDArray[RangeInt],
-    groups: NDArray[GroupIdInt] | None = None,
-    slack: int = 0,
-):
-    from _ruranges import boundary_numpy  # type: ignore[attr-defined]
-
-    groups_validated = validate_group(len(groups), groups)
-    check_lengths(groups_validated, starts, ends)
-
-    group_type = _get_type_info(groups_validated)
-    range_type = check_and_return_common_type_2(starts, ends)
-
-    if slack:
-        check_min_max_with_slack(starts, ends, slack, range_type)
-
-    idx, _starts, _ends, counts = boundary_numpy(
-        groups_validated,
-        starts.astype(np.int64),
-        ends.astype(np.int64),
-    )
-    return idx.astype(group_type), _starts.astype(range_type), _ends.astype(range_type), counts
+# def complement(
+#     *,
+#     starts: NDArray[RangeInt],
+#     ends: NDArray[RangeInt],
+#     groups: NDArray[GroupIdInt] | None = None,
+#     slack: int = 0,
+#     chrom_len_ids: 
+# ):
+#     from _ruranges import cluster_numpy  # type: ignore[attr-defined]
+# 
+#     groups_validated = validate_group(len(groups), groups)
+#     check_lengths(groups_validated, starts, ends)
+# 
+#     group_type = _get_type_info(groups_validated)
+#     range_type = check_and_return_common_type_2(starts, ends)
+# 
+#     if slack:
+#         check_min_max_with_slack(starts, ends, slack, range_type)
+# 
+#     clusters, indices = cluster_numpy(
+#         groups_validated,
+#         starts.astype(np.int64),
+#         ends.astype(np.int64),
+#         slack=slack,
+#     )
+#     return clusters, indices
+# 
+#     chrs, start, end, idxs = complement_numpy(
+#         chrs=factorized.to_numpy(),
+#         starts=df.Start.to_numpy(),
+#         ends=df.End.to_numpy(),
+#         slack=slack,
+#         chrom_len_ids=chrom_len_ids,
+#         chrom_lens=chrom_lens,
+#         include_first_interval=include_first_interval,
+#     )
+# 
+# 
+# 
+# def boundary(
+#     *,
+#     starts: NDArray[RangeInt],
+#     ends: NDArray[RangeInt],
+#     groups: NDArray[GroupIdInt] | None = None,
+#     slack: int = 0,
+# ):
+#     from _ruranges import boundary_numpy  # type: ignore[attr-defined]
+# 
+#     groups_validated = validate_group(len(groups), groups)
+#     check_lengths(groups_validated, starts, ends)
+# 
+#     group_type = _get_type_info(groups_validated)
+#     range_type = check_and_return_common_type_2(starts, ends)
+# 
+#     if slack:
+#         check_min_max_with_slack(starts, ends, slack, range_type)
+# 
+#     idx, _starts, _ends, counts = boundary_numpy(
+#         groups_validated,
+#         starts.astype(np.int64),
+#         ends.astype(np.int64),
+#     )
+#     return idx.astype(group_type), _starts.astype(range_type), _ends.astype(range_type), counts
 
 
 

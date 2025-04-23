@@ -1,6 +1,7 @@
 use num_traits::{PrimInt, Signed, Zero}; // You'll need the num-traits crate
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::hash::Hash;
+use std::str::FromStr;
 use std::time::Instant;
 
 use crate::ruranges_structs::{GroupType, MaxEvent, MinEvent, OverlapPair, PositionType};
@@ -9,7 +10,111 @@ use crate::sorts::{
     build_sorted_maxevents_with_starts_ends,
 };
 
+pub fn keep_first_by_idx(pairs: &mut Vec<OverlapPair>) {
+    let mut seen_idx = FxHashSet::default();
+    pairs.retain(|pair| seen_idx.insert(pair.idx));
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OverlapType {
+    First,
+    Last,
+    All,
+}
+
+impl FromStr for OverlapType {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "all" => Ok(OverlapType::All),
+            "first" => Ok(OverlapType::First),
+            "last" => Ok(OverlapType::Last),
+            _ => Err("Invalid direction string"),
+        }
+    }
+}
+
 /// Perform a four-way merge sweep to find cross overlaps.
+
+pub fn chromsweep_full<C: GroupType, T: PositionType>(
+    chrs: &[C],
+    starts: &[T],
+    ends: &[T],
+    chrs2: &[C],
+    starts2: &[T],
+    ends2: &[T],
+    slack: T,
+    overlap_type: &str,
+    contained: bool,
+) -> (Vec<u32>, Vec<u32>) {
+    let chrs_slice = chrs;
+    let starts_slice = starts;
+    let ends_slice = ends;
+    let chrs_slice2 = chrs2;
+    let starts_slice2 = starts2;
+    let ends_slice2 = ends2;
+
+    let overlap_type = OverlapType::from_str(overlap_type).unwrap();
+    let invert = overlap_type == OverlapType::Last;
+
+    let result = if overlap_type == OverlapType::All && !contained {
+        // The common, super-optimized case
+        sweep_line_overlaps(
+            chrs_slice,
+            starts_slice,
+            ends_slice,
+            chrs_slice2,
+            starts_slice2,
+            ends_slice2,
+            slack,
+        )
+    } else {
+        if !contained {
+            let (sorted_starts, sorted_ends) = compute_sorted_events(
+                chrs_slice,
+                starts_slice,
+                ends_slice,
+                slack,
+                invert,
+            );
+            let (sorted_starts2, sorted_ends2) =
+                compute_sorted_events(chrs_slice2, starts_slice2, ends_slice2, T::zero(), invert);
+
+            let mut pairs = sweep_line_overlaps_overlap_pair(
+                &sorted_starts,
+                &sorted_ends,
+                &sorted_starts2,
+                &sorted_ends2,
+            );
+            keep_first_by_idx(&mut pairs);
+            pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+        } else {
+            let maxevents = compute_sorted_maxevents(
+                chrs_slice,
+                starts_slice,
+                ends_slice,
+                chrs_slice2,
+                starts_slice2,
+                ends_slice2,
+                slack,
+                invert,
+            );
+            let mut pairs = sweep_line_overlaps_containment(maxevents);
+            if overlap_type == OverlapType::All {
+                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+            } else {
+                keep_first_by_idx(&mut pairs);
+                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+            }
+        }
+    };
+
+    (
+        result.0,
+        result.1,
+    )
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum WhichList {
