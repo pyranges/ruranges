@@ -13,6 +13,7 @@ use pyo3::wrap_pyfunction;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
+use crate::bindings::numpy_bindings::overlaps_numpy::chromsweep_numpy;
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
 use crate::complement::sweep_line_non_overlaps;
@@ -35,112 +36,7 @@ use crate::{outside_bounds, sorts};
 //     self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
 // };
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum OverlapType {
-    First,
-    Last,
-    All,
-}
 
-impl FromStr for OverlapType {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "all" => Ok(OverlapType::All),
-            "first" => Ok(OverlapType::First),
-            "last" => Ok(OverlapType::Last),
-            _ => Err("Invalid direction string"),
-        }
-    }
-}
-
-#[pyfunction]
-pub fn chromsweep_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrs2: PyReadonlyArray1<u32>,
-    starts2: PyReadonlyArray1<i64>,
-    ends2: PyReadonlyArray1<i64>,
-    slack: i64,
-    overlap_type: &str,
-    contained: bool,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>)> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let chrs_slice2 = chrs2.as_slice()?;
-    let starts_slice2 = starts2.as_slice()?;
-    let ends_slice2 = ends2.as_slice()?;
-
-    let overlap_type = OverlapType::from_str(overlap_type).unwrap();
-    let invert = overlap_type == OverlapType::Last;
-
-    let result = if overlap_type == OverlapType::All && !contained {
-        // The common, super-optimized case
-        overlaps::sweep_line_overlaps(
-            chrs_slice,
-            starts_slice,
-            ends_slice,
-            chrs_slice2,
-            starts_slice2,
-            ends_slice2,
-            slack,
-        )
-    } else {
-        if !contained {
-            let (sorted_starts, sorted_ends) = overlaps::compute_sorted_events(
-                chrs_slice,
-                starts_slice,
-                ends_slice,
-                slack,
-                invert,
-            );
-            let (sorted_starts2, sorted_ends2) =
-                overlaps::compute_sorted_events(chrs_slice2, starts_slice2, ends_slice2, 0, invert);
-
-            let mut pairs = overlaps::sweep_line_overlaps_overlap_pair(
-                &sorted_starts,
-                &sorted_ends,
-                &sorted_starts2,
-                &sorted_ends2,
-            );
-            keep_first_by_idx(&mut pairs);
-            pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-        } else {
-            let maxevents = overlaps::compute_sorted_maxevents(
-                chrs_slice,
-                starts_slice,
-                ends_slice,
-                chrs_slice2,
-                starts_slice2,
-                ends_slice2,
-                slack,
-                invert,
-            );
-            let mut pairs = overlaps::sweep_line_overlaps_containment(maxevents);
-            if overlap_type == OverlapType::All {
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-            } else {
-                keep_first_by_idx(&mut pairs);
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
-            }
-        }
-    };
-
-    let res = Ok((
-        result.0.into_pyarray(py).to_owned().into(),
-        result.1.into_pyarray(py).to_owned().into(),
-    ));
-    res
-}
-
-pub fn keep_first_by_idx(pairs: &mut Vec<OverlapPair>) {
-    let mut seen_idx = FxHashSet::default();
-    pairs.retain(|pair| seen_idx.insert(pair.idx));
-}
 
 #[pyfunction]
 #[pyo3(signature = (*, chrs, starts, ends, chrs2, starts2, ends2, slack=0, k=1, include_overlaps=true, direction="any"))]
@@ -803,8 +699,8 @@ pub fn genome_bounds_numpy(
 }
 
 #[pymodule]
-#[pyo3(name = "_ruranges")]
-fn _ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
+#[pyo3(name = "ruranges")]
+fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chromsweep_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;

@@ -15,6 +15,8 @@ pub mod split;
 pub mod subtract;
 pub mod tile;
 
+pub mod helpers;
+
 pub mod bindings;
 pub mod numpy_bindings;
 

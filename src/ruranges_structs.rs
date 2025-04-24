@@ -1,6 +1,6 @@
 use num_traits::{PrimInt, Signed, Zero};
 use numpy::Element; // You'll need the num-traits crate
-use std::hash::Hash;
+use std::{hash::Hash, str::FromStr};
 
 pub trait PositionType: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Zero {}
 impl<T> PositionType for T where T: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Zero {}
@@ -113,4 +113,24 @@ pub struct GenericEvent<C: GroupType, T: PositionType> {
     pub is_start: bool,
     pub first_set: bool,
     pub idx: u32,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OverlapType {
+    First,
+    Last,
+    All,
+}
+
+impl FromStr for OverlapType {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "all" => Ok(OverlapType::All),
+            "first" => Ok(OverlapType::First),
+            "last" => Ok(OverlapType::Last),
+            _ => Err("Invalid direction string"),
+        }
+    }
 }
