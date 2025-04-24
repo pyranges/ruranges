@@ -1,9 +1,7 @@
-
-from typing import Any, Literal, TypeVar
+import importlib
+from typing import Any, Callable, Literal, TypeVar
 import numpy as np
 from numpy.typing import NDArray
-
-from .ruranges import *
 
 
 # Define a type variable for groups that allows only int8, int16, or int32.
@@ -11,6 +9,36 @@ GroupIdInt = TypeVar("GroupIdInt", np.int8, np.int16, np.int32)
 
 # Define another type variable for the range arrays (starts/ends), which can be any integer.
 RangeInt = TypeVar("RangeInt", bound=np.integer)
+
+
+# dtype-suffix map shared by every operation
+# (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
+_SUFFIX_TABLE = {
+    # ─── uint8 groups ────────────────────────────────────────────────
+    (np.dtype(np.uint8),  np.dtype(np.int8)):  ("u8_i16",  np.uint8,  np.int16),
+    (np.dtype(np.uint8),  np.dtype(np.int16)): ("u8_i16",  np.uint8,  np.int16),
+    (np.dtype(np.uint8),  np.dtype(np.int32)): ("u8_i32",  np.uint8,  np.int32),
+    (np.dtype(np.uint8),  np.dtype(np.int64)): ("u8_i64",  np.uint8,  np.int64),
+
+    # ─── uint16 groups ───────────────────────────────────────────────
+    (np.dtype(np.uint16), np.dtype(np.int8)):  ("u16_i16", np.uint16, np.int16),
+    (np.dtype(np.uint16), np.dtype(np.int16)): ("u16_i16", np.uint16, np.int16),
+    (np.dtype(np.uint16), np.dtype(np.int32)): ("u16_i32", np.uint16, np.int32),
+    (np.dtype(np.uint16), np.dtype(np.int64)): ("u16_i64", np.uint16, np.int64),
+
+    # ─── uint32 groups ───────────────────────────────────────────────
+    (np.dtype(np.uint32), np.dtype(np.int8)):  ("u32_i16", np.uint32, np.int16),
+    (np.dtype(np.uint32), np.dtype(np.int16)): ("u32_i16", np.uint32, np.int16),
+    (np.dtype(np.uint32), np.dtype(np.int32)): ("u32_i32", np.uint32, np.int32),
+    (np.dtype(np.uint32), np.dtype(np.int64)): ("u32_i64", np.uint32, np.int64),
+
+    # ─── uint64 groups ───────────────────────────────────────────────
+    (np.dtype(np.uint64), np.dtype(np.int8)):  ("u64_i64", np.uint64, np.int64),
+    (np.dtype(np.uint64), np.dtype(np.int16)): ("u64_i64", np.uint64, np.int64),
+    (np.dtype(np.uint64), np.dtype(np.int32)): ("u64_i64", np.uint64, np.int64),
+    (np.dtype(np.uint64), np.dtype(np.int64)): ("u64_i64", np.uint64, np.int64),
+}
+
 
 
 def overlaps(
@@ -89,13 +117,14 @@ def overlaps(
     if slack:
         check_min_max_with_slack(starts, ends, slack, _dtype_ranges)
 
-    idx1, idx2 = chromsweep_numpy(
-        groups_validated,
-        starts.astype(np.int64),
-        ends.astype(np.int64),
-        groups2_validated,
-        starts2.astype(np.int64),
-        ends2.astype(np.int64),
+    idx1, idx2 = _dispatch_binary(
+        "chromsweep_numpy",
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
         slack,
         overlap_type=multiple,
         contained=contained,
@@ -155,9 +184,7 @@ def check_min_max_with_slack(
         raise ValueError(msg)
 
 
-def check_and_return_common_type_2(
-    starts: np.ndarray, ends: np.ndarray
-) -> np.dtype:
+def check_and_return_common_type_2(starts: np.ndarray, ends: np.ndarray) -> np.dtype:
     """Check that `starts` and `ends` share the same dtype.
     If they do not, raises a TypeError.
     """
@@ -204,7 +231,6 @@ def check_and_return_common_type_4(
         )
 
     return dtypes.pop()
-
 
 
 def check_array_lengths(
@@ -256,3 +282,77 @@ def validate_groups(
         raise ValueError("`groups` must have the same length as specified by `length`.")
 
     return groups
+
+
+# ---- zero-copy cast -------------------------------------------------
+def _cast(
+    a: NDArray,
+    target: np.dtype,
+) -> NDArray:
+    """Return *a* unchanged if dtype already matches, else cast with copy=False."""
+    return (
+        a if a.dtype == target else a.astype(target, copy=False)
+    )  # ndarray.astype will
+    # reuse the buffer when
+    # copy=False and the
+    # conversion is safe :contentReference[oaicite:2]{index=2}
+
+
+# ---- resolve the correct Rust wrapper ------------------------------
+def _resolve_rust_fn(
+    prefix: str,
+    grp_dt: np.dtype,
+    pos_dt: np.dtype,
+) -> tuple[Callable, np.dtype, np.dtype]:
+    """Look up (wrapper, target_grp_dt, target_pos_dt) or raise TypeError."""
+    try:
+        suffix, tgt_grp, tgt_pos = _SUFFIX_TABLE[(grp_dt, pos_dt)]
+    except KeyError as exc:
+        raise TypeError(f"Unsupported dtype pair: {grp_dt}, {pos_dt}") from exc
+
+    rust_mod = importlib.import_module(".ruranges", package="ruranges")
+    rust_fn = getattr(rust_mod, f"{prefix}_{suffix}")
+    return rust_fn, tgt_grp, tgt_pos
+
+
+def _dispatch_unary(
+    prefix: str,
+    chroms: NDArray,
+    starts: NDArray,
+    ends: NDArray,
+    *extra_pos_args: Any,
+    **extra_kw: Any,
+):
+    """Common body for functions that take one (chroms, starts, ends) trio."""
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, chroms.dtype, starts.dtype)
+
+    chroms_c = _cast(chroms, grp_t)
+    starts_c = _cast(starts, pos_t)
+    ends_c = _cast(ends, pos_t)
+
+    return rust_fn(chroms_c, starts_c, ends_c, *extra_pos_args, **extra_kw)
+
+
+def _dispatch_binary(
+    prefix: str,
+    chroms1: NDArray,
+    starts1: NDArray,
+    ends1: NDArray,
+    chroms2: NDArray,
+    starts2: NDArray,
+    ends2: NDArray,
+    *extra_pos: Any,
+    **extra_kw: Any,
+):
+    """Shared body for all two-interval-set operations."""
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, chroms1.dtype, starts1.dtype)
+
+    # cast *every* array to the targets
+    g1 = _cast(chroms1, grp_t)
+    g2 = _cast(chroms2, grp_t)
+    s1 = _cast(starts1, pos_t)
+    e1 = _cast(ends1, pos_t)
+    s2 = _cast(starts2, pos_t)
+    e2 = _cast(ends2, pos_t)
+
+    return rust_fn(g1, s1, e1, g2, s2, e2, *extra_pos, **extra_kw)

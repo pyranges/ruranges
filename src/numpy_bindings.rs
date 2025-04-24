@@ -13,6 +13,8 @@ use pyo3::wrap_pyfunction;
 use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
+use bindings::numpy_bindings::overlaps_numpy::*;
+
 use crate::bindings::numpy_bindings::overlaps_numpy::chromsweep_numpy;
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
@@ -30,7 +32,7 @@ use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::subtract::sweep_line_subtract;
 use crate::tile::{tile, window};
-use crate::{outside_bounds, sorts};
+use crate::{bindings, outside_bounds, sorts};
 
 // use crate::bindings::polars_bindings::{
 //     self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
@@ -702,6 +704,18 @@ pub fn genome_bounds_numpy(
 #[pyo3(name = "ruranges")]
 fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chromsweep_numpy, m)?)?;
+
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
