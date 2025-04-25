@@ -15,30 +15,32 @@ RangeInt = TypeVar("RangeInt", bound=np.integer)
 # (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
 _SUFFIX_TABLE = {
     # ─── uint8 groups ────────────────────────────────────────────────
-    (np.dtype(np.uint8),  np.dtype(np.int8)):  ("u8_i16",  np.uint8,  np.int16),
-    (np.dtype(np.uint8),  np.dtype(np.int16)): ("u8_i16",  np.uint8,  np.int16),
-    (np.dtype(np.uint8),  np.dtype(np.int32)): ("u8_i32",  np.uint8,  np.int32),
-    (np.dtype(np.uint8),  np.dtype(np.int64)): ("u8_i64",  np.uint8,  np.int64),
-
+    (np.dtype(np.uint8), np.dtype(np.int8)): ("u8_i16", np.uint8, np.int16),
+    (np.dtype(np.uint8), np.dtype(np.int16)): ("u8_i16", np.uint8, np.int16),
+    (np.dtype(np.uint8), np.dtype(np.int32)): ("u8_i32", np.uint8, np.int32),
+    (np.dtype(np.uint8), np.dtype(np.int64)): ("u8_i64", np.uint8, np.int64),
     # ─── uint16 groups ───────────────────────────────────────────────
-    (np.dtype(np.uint16), np.dtype(np.int8)):  ("u16_i16", np.uint16, np.int16),
+    (np.dtype(np.uint16), np.dtype(np.int8)): ("u16_i16", np.uint16, np.int16),
     (np.dtype(np.uint16), np.dtype(np.int16)): ("u16_i16", np.uint16, np.int16),
     (np.dtype(np.uint16), np.dtype(np.int32)): ("u16_i32", np.uint16, np.int32),
     (np.dtype(np.uint16), np.dtype(np.int64)): ("u16_i64", np.uint16, np.int64),
-
     # ─── uint32 groups ───────────────────────────────────────────────
-    (np.dtype(np.uint32), np.dtype(np.int8)):  ("u32_i16", np.uint32, np.int16),
+    (np.dtype(np.uint32), np.dtype(np.int8)): ("u32_i16", np.uint32, np.int16),
     (np.dtype(np.uint32), np.dtype(np.int16)): ("u32_i16", np.uint32, np.int16),
     (np.dtype(np.uint32), np.dtype(np.int32)): ("u32_i32", np.uint32, np.int32),
     (np.dtype(np.uint32), np.dtype(np.int64)): ("u32_i64", np.uint32, np.int64),
-
     # ─── uint64 groups ───────────────────────────────────────────────
-    (np.dtype(np.uint64), np.dtype(np.int8)):  ("u64_i64", np.uint64, np.int64),
+    (np.dtype(np.uint64), np.dtype(np.int8)): ("u64_i64", np.uint64, np.int64),
     (np.dtype(np.uint64), np.dtype(np.int16)): ("u64_i64", np.uint64, np.int64),
     (np.dtype(np.uint64), np.dtype(np.int32)): ("u64_i64", np.uint64, np.int64),
     (np.dtype(np.uint64), np.dtype(np.int64)): ("u64_i64", np.uint64, np.int64),
 }
 
+RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
+    "chromsweep_numpy": ("grp", "grp"),
+    "nearest_numpy": ("grp", "grp", "pos"),
+    "strand_numpy": ("grp", "grp", "strand"),
+}
 
 
 def overlaps(
@@ -70,7 +72,7 @@ def overlaps(
     >>> import numpy as np
     >>> from numpy.typing import NDArray
     >>> RangeInt = np.int32
-    >>> GroupIdInt = np.int32
+    >>> GroupIdInt = np.uint32
     >>> starts = np.array([1, 10], dtype=RangeInt)
     >>> ends   = np.array([5, 15], dtype=RangeInt)
     >>> starts2 = np.array([3, 20], dtype=RangeInt)
@@ -103,21 +105,7 @@ def overlaps(
         If any of the length checks fail or if only one of groups/groups2 is provided.
     """
 
-    length = check_array_lengths(starts, ends, groups)
-    length2 = check_array_lengths(starts2, ends2, groups2)
-
-    groups_validated = validate_groups(length, groups)
-    groups2_validated = validate_groups(length2, groups2)
-
-    _dtype_groupids = check_and_return_common_type_2(
-        groups_validated, groups2_validated
-    )
-    _dtype_ranges = check_and_return_common_type_4(starts, ends, starts2, ends2)
-
-    if slack:
-        check_min_max_with_slack(starts, ends, slack, _dtype_ranges)
-
-    idx1, idx2 = _dispatch_binary(
+    return _dispatch_binary(
         "chromsweep_numpy",
         groups,
         starts,
@@ -130,7 +118,72 @@ def overlaps(
         contained=contained,
     )
 
-    return idx1.astype(_dtype_groupids), idx2.astype(_dtype_groupids)
+
+def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
+    """Return the narrowest integer dtype that can hold *arr*,
+    preserving the signed/unsigned kind of the original dtype.
+    """
+    arr = np.asanyarray(arr)
+    if arr.size == 0:
+        return arr.dtype
+
+    lo: int = int(arr.min())
+    hi: int = int(arr.max())
+
+    if arr.dtype.kind == "u":
+        for dt in (np.uint8, np.uint16, np.uint32, np.uint64):
+            if hi <= np.iinfo(dt).max:
+                return np.dtype(dt)
+    elif arr.dtype.kind == "i":
+        for dt in (np.int8, np.int16, np.int32, np.int64):
+            info = np.iinfo(dt)
+            if lo >= info.min and hi <= info.max:
+                return np.dtype(dt)
+    else:
+        raise TypeError("Input must use an integer dtype")
+
+    raise ValueError("Values exceed 64-bit integer range")
+
+
+def _common_integer_dtype(*arrays: NDArray[np.integer]) -> np.dtype:
+    """Private: return an integer dtype that can safely hold
+    every value in *arrays*."""
+    mins = [minimal_integer_dtype(a) for a in arrays]
+    common = np.result_type(*mins)
+    if common.kind not in {"i", "u"}:
+        raise TypeError("No common *integer* dtype for these arrays")
+    return common
+
+
+def cast_two_arrays(
+    a: NDArray[np.integer],
+    b: NDArray[np.integer],
+) -> tuple[NDArray[np.integer], NDArray[np.integer]]:
+    """Return *a* and *b* converted to the largest minimal-integer dtype
+    required by either array."""
+    tgt = _common_integer_dtype(a, b)
+    return a.astype(tgt, copy=False), b.astype(tgt, copy=False)
+
+
+def cast_four_arrays(
+    a: NDArray[np.integer],
+    b: NDArray[np.integer],
+    c: NDArray[np.integer],
+    d: NDArray[np.integer],
+) -> tuple[
+    NDArray[np.integer],
+    NDArray[np.integer],
+    NDArray[np.integer],
+    NDArray[np.integer],
+]:
+    """Same idea for four arrays."""
+    tgt = _common_integer_dtype(a, b, c, d)
+    return (
+        a.astype(tgt, copy=False),
+        b.astype(tgt, copy=False),
+        c.astype(tgt, copy=False),
+        d.astype(tgt, copy=False),
+    )
 
 
 def check_min_max_with_slack(
@@ -322,7 +375,7 @@ def _dispatch_unary(
     ends: NDArray,
     *extra_pos_args: Any,
     **extra_kw: Any,
-):
+) -> Any:
     """Common body for functions that take one (chroms, starts, ends) trio."""
     rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, chroms.dtype, starts.dtype)
 
@@ -335,24 +388,138 @@ def _dispatch_unary(
 
 def _dispatch_binary(
     prefix: str,
-    chroms1: NDArray,
-    starts1: NDArray,
-    ends1: NDArray,
-    chroms2: NDArray,
+    groups: NDArray | None,
+    starts: NDArray,
+    ends: NDArray,
+    groups2: NDArray | None,
     starts2: NDArray,
     ends2: NDArray,
-    *extra_pos: Any,
-    **extra_kw: Any,
+    *extra_pos: any,
+    **extra_kw: any,
 ):
-    """Shared body for all two-interval-set operations."""
-    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, chroms1.dtype, starts1.dtype)
+    """Shared body for all two-interval-set operations with automatic
+    down-casting to minimal integer dtypes."""
 
-    # cast *every* array to the targets
-    g1 = _cast(chroms1, grp_t)
-    g2 = _cast(chroms2, grp_t)
-    s1 = _cast(starts1, pos_t)
-    e1 = _cast(ends1, pos_t)
-    s2 = _cast(starts2, pos_t)
-    e2 = _cast(ends2, pos_t)
+    length = check_array_lengths(starts, ends, groups)
+    length2 = check_array_lengths(starts2, ends2, groups2)
 
-    return rust_fn(g1, s1, e1, g2, s2, e2, *extra_pos, **extra_kw)
+    groups_validated = validate_groups(length, groups)
+    groups2_validated = validate_groups(length2, groups2)
+
+    # ------------------------------------------------------------------
+    # 1.  Remember caller-visible dtypes
+    # ------------------------------------------------------------------
+    grp_orig: np.dtype = groups_validated.dtype
+    pos_orig: np.dtype = starts.dtype
+
+    # ------------------------------------------------------------------
+    # 2.  Choose tightest common dtypes for groups and positions
+    # ------------------------------------------------------------------
+    grp_tmp = _common_integer_dtype(
+        groups_validated, groups2_validated
+    )  # signed/unsigned kept
+    pos_tmp = _common_integer_dtype(starts, ends, starts2, ends2)
+
+    print(f"Got {grp_orig} but will downcast to {grp_tmp}")
+    print(f"Got {pos_orig} but will downcast to {pos_tmp}")
+
+    # Slack range check (only if the caller supplied slack > 0)
+    slack = extra_kw.get("slack", 0)
+    try:
+        if slack:
+            check_min_max_with_slack(starts, ends, slack, pos_tmp)
+    except ValueError:
+        # Too narrow → fall back to original pos dtype
+        pos_tmp = pos_orig
+
+    # ------------------------------------------------------------------
+    # 3.  Now resolve the Rust kernel for the *temporary* dtypes
+    # ------------------------------------------------------------------
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, grp_tmp, pos_tmp)
+
+    roles = RETURN_SIGNATURES[prefix]
+
+    # ------------------------------------------------------------------
+    # 4.  Cast inputs for the FFI call
+    # ------------------------------------------------------------------
+    g1 = groups.astype(grp_t, copy=False)
+    g2 = groups2.astype(grp_t, copy=False)
+    s1 = starts.astype(pos_t, copy=False)
+    e1 = ends.astype(pos_t, copy=False)
+    s2 = starts2.astype(pos_t, copy=False)
+    e2 = ends2.astype(pos_t, copy=False)
+
+    # ------------------------------------------------------------------
+    # 5.  Dispatch & post-process results
+    # ------------------------------------------------------------------
+    raw = rust_fn(g1, s1, e1, g2, s2, e2, *extra_pos, **extra_kw)
+
+    return cast_kernel_outputs(prefix, raw, roles, grp_t, pos_t, grp_orig, pos_orig)
+
+
+def cast_kernel_outputs(
+    prefix: str,
+    raw_out: Any,
+    roles: tuple[str, ...],
+    grp_t: np.dtype,
+    pos_t: np.dtype,
+    grp_orig: np.dtype,
+    pos_orig: np.dtype,
+) -> Any:
+    """
+    Cast every array returned by a Rust kernel back to the caller-visible dtype.
+
+    Parameters
+    ----------
+    prefix
+        Kernel name (used only for clearer error messages).
+    raw_out
+        Value returned by the Rust FFI stub – either a single ndarray *or*
+        a tuple of ndarrays.
+    roles
+        Tuple that labels each output position, e.g. ('grp', 'grp'),
+        ('grp', 'grp', 'pos'), or ('grp',) for single-output kernels.
+    grp_t / pos_t
+        Temporary dtypes used when **calling** the kernel
+        (unsigned for groups,  signed for positions).
+    grp_orig / pos_orig
+        Dtypes the Python API guarantees to the caller.
+
+    Returns
+    -------
+    Casted ndarray or tuple of ndarrays in the same shape as *raw_out*.
+    """
+
+    def _restore(role: str, arr: np.ndarray) -> np.ndarray:
+        """Cast one array according to its semantic role."""
+        if role == "grp" and arr.dtype == grp_t:  # unsigned → caller dtype
+            return arr.astype(
+                grp_orig, copy=False
+            )  # zero-copy view :contentReference[oaicite:0]{index=0}
+        if role == "pos" and arr.dtype == pos_t:  # signed   → caller dtype
+            return arr.astype(
+                pos_orig, copy=False
+            )  # zero-copy view :contentReference[oaicite:1]{index=1}
+        return arr  # strand / dist stay
+
+    # ── SINGLE-OUTPUT KERNEL ────────────────────────────────────────────
+    if len(roles) == 1:  # API says 1 array
+        if not isinstance(
+            raw_out, np.ndarray
+        ):  # ndarray check :contentReference[oaicite:2]{index=2}
+            raise TypeError(
+                f"{prefix!r} should return one ndarray; got {type(raw_out).__name__}"
+            )
+        return _restore(roles[0], raw_out)
+
+    # ── MULTI-OUTPUT KERNEL ─────────────────────────────────────────────
+    if not isinstance(raw_out, tuple):  # stray array → wrap
+        raw_out = (raw_out,)
+    if len(raw_out) != len(roles):  # arity guard
+        raise ValueError(
+            f"{prefix!r} declared {len(roles)} outputs but kernel returned "
+            f"{len(raw_out)}"
+        )
+
+    # zip stops at the shorter iterable; arity already checked above :contentReference[oaicite:3]{index=3}
+    return tuple(_restore(role, arr) for role, arr in zip(roles, raw_out))
