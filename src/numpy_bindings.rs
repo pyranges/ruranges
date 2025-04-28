@@ -14,6 +14,7 @@ use bindings::numpy_bindings::complement_overlaps_numpy::*;
 use bindings::numpy_bindings::count_overlaps_numpy::*;
 use bindings::numpy_bindings::sort_intervals_numpy::*;
 use bindings::numpy_bindings::cluster_numpy::*;
+use bindings::numpy_bindings::merge_numpy::*;
 use bindings::numpy_bindings::max_disjoint_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
@@ -73,34 +74,6 @@ pub fn window_numpy(
         indices.into_pyarray(py).to_owned().into(),
         starts.into_pyarray(py).to_owned().into(),
         ends.into_pyarray(py).to_owned().into(),
-    ))
-}
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, slack=0))]
-pub fn merge_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    slack: i64,
-    py: Python,
-) -> PyResult<(
-    Py<PyArray1<u32>>,
-    Py<PyArray1<i64>>,
-    Py<PyArray1<i64>>,
-    Py<PyArray1<u32>>,
-)> {
-    let (indices, starts, ends, counts) = sweep_line_merge(
-        chrs.as_slice()?,
-        starts.as_slice()?,
-        ends.as_slice()?,
-        slack,
-    );
-    Ok((
-        indices.into_pyarray(py).to_owned().into(),
-        starts.into_pyarray(py).to_owned().into(),
-        ends.into_pyarray(py).to_owned().into(),
-        counts.into_pyarray(py).to_owned().into(),
     ))
 }
 
@@ -453,6 +426,17 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cluster_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(cluster_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(merge_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(merge_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u32_i64, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u32_i32, m)?)?;
@@ -473,7 +457,6 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     //     m.add_function(wrap_pyfunction!(subsequence_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(merge_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
 

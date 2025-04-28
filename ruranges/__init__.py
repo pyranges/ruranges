@@ -45,6 +45,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "sort_intervals_numpy": ("idx",),
     "cluster_numpy": ("idx", "count"),
     "max_disjoint_numpy": ("idx",),
+    "merge_numpy": ("grp", "pos", "pos", "count"),
 }
 
 
@@ -378,13 +379,53 @@ def cluster(
         the permutation that sorts the rows by cluster then position.
     """
     return _dispatch_unary(
-        "max_disjoint_numpy",      # dispatch key – matches the Rust wrapper base
+        "cluster_numpy",      # dispatch key – matches the Rust wrapper base
         groups,
         starts,
         ends,
         slack=slack,
     )
 
+def merge(
+    *,
+    starts: NDArray[RangeInt],
+    ends:   NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    slack:  int = 0,
+) -> tuple[
+    NDArray[GroupIdInt],  # indices
+    NDArray[RangeInt],    # merged starts
+    NDArray[RangeInt],    # merged ends
+    NDArray[GroupIdInt],  # counts
+]:
+    """
+    Merge overlapping / *slack*-close intervals, optionally per group.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (dtype ``RangeInt``).
+    groups
+        Optional group IDs (chromosome, contig …).  Merging is performed
+        independently within each group.  Omit to merge globally.
+    slack
+        Two intervals are merged if their gap is ≤ `slack`
+        (0 ⇒ they must touch/intersect).
+
+    Returns
+    -------
+    indices, merged_starts, merged_ends, counts
+        *indices* is the ``uint32`` row index of the first interval that
+        contributed to each merged output.  *counts* reports how many original
+        intervals were collapsed into each merge.
+    """
+    return _dispatch_unary(
+        "merge_numpy",        # base name of the Rust wrapper
+        groups,
+        starts,
+        ends,
+        slack=slack,
+    )
 
 def max_disjoint(
     *,
