@@ -8,4 +8,5 @@ pub mod cluster_numpy;
 pub mod merge_numpy;
 pub mod window_numpy;
 pub mod tile_numpy;
+pub mod extend_numpy;
 pub mod max_disjoint_numpy;
