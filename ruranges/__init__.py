@@ -14,6 +14,10 @@ RangeInt = TypeVar("RangeInt", bound=np.integer)
 # dtype-suffix map shared by every operation
 # (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
 _SUFFIX_TABLE = {
+    (None, np.dtype(np.int8)):  ("i16", None, np.int16),
+    (None, np.dtype(np.int16)): ("i16", None, np.int16),
+    (None, np.dtype(np.int32)): ("i32", None, np.int32),
+    (None, np.dtype(np.int64)): ("i64", None, np.int64),
     # ─── uint8 groups ────────────────────────────────────────────────
     (np.dtype(np.uint8), np.dtype(np.int8)): ("u8_i16", np.uint8, np.int16),
     (np.dtype(np.uint8), np.dtype(np.int16)): ("u8_i16", np.uint8, np.int16),
@@ -46,6 +50,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "cluster_numpy": ("idx", "count"),
     "max_disjoint_numpy": ("idx",),
     "merge_numpy": ("grp", "pos", "pos", "count"),
+    "window_numpy": ("grp", "pos", "pos"),
 }
 
 
@@ -344,9 +349,9 @@ def sort_intervals(
     """
     return _dispatch_unary(
         "sort_intervals_numpy",  # selects the Rust wrapper
-        groups,
-        starts,
-        ends,
+        groups=groups,
+        starts=starts,
+        ends=ends,
         sort_reverse_direction=sort_reverse_direction,
     )
 
@@ -380,9 +385,9 @@ def cluster(
     """
     return _dispatch_unary(
         "cluster_numpy",      # dispatch key – matches the Rust wrapper base
-        groups,
-        starts,
-        ends,
+        groups=groups,
+        starts=starts,
+        ends=ends,
         slack=slack,
     )
 
@@ -421,9 +426,9 @@ def merge(
     """
     return _dispatch_unary(
         "merge_numpy",        # base name of the Rust wrapper
-        groups,
-        starts,
-        ends,
+        groups=groups,
+        starts=starts,
+        ends=ends,
         slack=slack,
     )
 
@@ -461,10 +466,51 @@ def max_disjoint(
     """
     return _dispatch_unary(
         "max_disjoint_numpy",   # base name of the Rust wrapper
-        groups,
-        starts,
-        ends,
+        groups=groups,
+        starts=starts,
+        ends=ends,
         slack=slack,
+    )
+
+
+def window(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    negative_strand: NDArray[np.bool_],
+    window_size: int,
+) -> tuple[
+    NDArray[GroupIdInt],  # indices
+    NDArray[RangeInt],    # windowed starts
+    NDArray[RangeInt],    # windowed ends
+]:
+    """
+    Expand each interval upstream/downstream by `window_size` bases.
+
+    Expansion direction:
+
+    * **positive strand** (`negative_strand == False`)
+      → start − *window_size*, end + *window_size*
+    * **negative strand** (`negative_strand == True`)
+      → start + *window_size*, end − *window_size*
+
+    Returns the permutation (`indices`) that sorts the window-shifted
+    intervals, plus the shifted coordinates.
+
+    Notes
+    -----
+    All heavy lifting happens inside Rust; this wrapper only dispatches to the
+    correct concrete wrapper based on NumPy dtypes.
+    """
+    # `_dispatch_unary` accepts `groups=None` because this operation has no
+    # grouping column.
+    return _dispatch_unary(
+        "window_numpy",          # base name of the Rust wrapper
+        groups=None,                    # groups == None
+        starts=starts,
+        ends=ends,
+        negative_strand=negative_strand,
+        window_size=window_size,
     )
 
 
@@ -719,9 +765,9 @@ def _resolve_rust_fn(
 
 def _dispatch_unary(
     prefix: str,
-    groups: NDArray,
     starts: NDArray,
     ends: NDArray,
+    groups: NDArray | None = None,
     *extra_pos_args: Any,
     **extra_kw: Any,
 ) -> Any:
@@ -738,13 +784,17 @@ def _dispatch_unary(
     grp_orig: np.dtype = groups_validated.dtype
     pos_orig: np.dtype = starts.dtype
 
-    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, groups.dtype, starts.dtype)
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, groups.dtype if groups is not None else None, starts.dtype)
 
-    chroms_c = _cast(groups, grp_t)
+    chroms_c = _cast(groups, grp_t) if groups is not None else None
     starts_c = _cast(starts, pos_t)
     ends_c = _cast(ends, pos_t)
 
-    raw = rust_fn(chroms_c, starts_c, ends_c, *extra_pos_args, **extra_kw)
+    if groups is not None:
+        raw = rust_fn(chroms_c, starts_c, ends_c, *extra_pos_args, **extra_kw)
+    else:
+        raw = rust_fn(starts_c, ends_c, *extra_pos_args, **extra_kw)
+
     return cast_kernel_outputs(prefix, raw, roles, grp_t, pos_t, grp_orig, pos_orig)
 
 

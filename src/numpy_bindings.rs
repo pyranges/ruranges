@@ -15,12 +15,12 @@ use bindings::numpy_bindings::count_overlaps_numpy::*;
 use bindings::numpy_bindings::sort_intervals_numpy::*;
 use bindings::numpy_bindings::cluster_numpy::*;
 use bindings::numpy_bindings::merge_numpy::*;
+use bindings::numpy_bindings::window_numpy::*;
 use bindings::numpy_bindings::max_disjoint_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
 use crate::complement_single::sweep_line_complement;
 use crate::extend::{extend, extend_grp};
-use crate::merge::sweep_line_merge;
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::tile::{tile, window};
@@ -52,28 +52,6 @@ pub fn tile_numpy(
         starts.into_pyarray(py).to_owned().into(),
         ends.into_pyarray(py).to_owned().into(),
         overlap_fraction.into_pyarray(py).to_owned().into(),
-    ))
-}
-
-#[pyfunction]
-#[pyo3(signature = (starts, ends, negative_strand, window_size))]
-pub fn window_numpy(
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    negative_strand: PyReadonlyArray1<bool>,
-    window_size: i64,
-    py: Python,
-) -> PyResult<(Py<PyArray1<usize>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let (starts, ends, indices) = window(
-        starts.as_slice()?,
-        ends.as_slice()?,
-        negative_strand.as_slice()?,
-        window_size,
-    );
-    Ok((
-        indices.into_pyarray(py).to_owned().into(),
-        starts.into_pyarray(py).to_owned().into(),
-        ends.into_pyarray(py).to_owned().into(),
     ))
 }
 
@@ -448,8 +426,11 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(window_numpy_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(window_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(tile_numpy, m)?)?;
     // m.add_function(wrap_pyfunction!(nearest_intervals_unique_k_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_numpy, m)?)?;

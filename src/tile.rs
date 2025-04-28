@@ -1,3 +1,5 @@
+use crate::ruranges_structs::{GroupType, PositionType};
+
 /// Returns tiled intervals along with the original row index and the tile overlap as a fraction of tile size.
 ///
 /// For each interval defined by `starts[i]` and `ends[i]`, the function splits the genome into
@@ -109,12 +111,13 @@ pub fn tile(
     (out_starts, out_ends, out_indices, out_overlaps)
 }
 
-pub fn window(
-    starts: &[i64],
-    ends: &[i64],
+
+pub fn window<T: PositionType>(
+    starts: &[T],
+    ends: &[T],
     negative_strand: &[bool],
-    window_size: i64,
-) -> (Vec<i64>, Vec<i64>, Vec<usize>) {
+    window_size: T,
+) -> (Vec<T>, Vec<T>, Vec<usize>) {
     assert_eq!(starts.len(), ends.len());
     assert_eq!(starts.len(), negative_strand.len());
 
@@ -133,25 +136,22 @@ pub fn window(
         }
 
         if !is_neg {
-            // === Forward direction (same as original) === //
             let mut cur_start = s;
             while cur_start < e {
                 let cur_end = (cur_start + window_size).min(e);
                 out_starts.push(cur_start);
                 out_ends.push(cur_end);
                 out_indices.push(i);
-                cur_start += window_size;
+                cur_start = cur_start + window_size;
             }
         } else {
-            // === Reverse direction === //
-            // For negative strand, we go from `e` down to `s`, stepping by `window_size`.
             let mut cur_end = e;
             while cur_end > s {
                 let cur_start = (cur_end - window_size).max(s);
                 out_starts.push(cur_start);
                 out_ends.push(cur_end);
                 out_indices.push(i);
-                cur_end -= window_size;
+                cur_end = cur_end - window_size;
             }
         }
     }

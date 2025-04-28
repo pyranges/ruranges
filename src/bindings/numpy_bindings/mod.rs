@@ -6,4 +6,5 @@ pub mod count_overlaps_numpy;
 pub mod sort_intervals_numpy;
 pub mod cluster_numpy;
 pub mod merge_numpy;
+pub mod window_numpy;
 pub mod max_disjoint_numpy;
