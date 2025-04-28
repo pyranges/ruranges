@@ -1,20 +1,15 @@
 use std::collections::HashMap;
-use std::f32::consts::E;
 use std::str::FromStr;
-use std::time::Instant;
 
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
-use numpy::{PyArrayDyn, PyArrayMethods};
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use pyo3::types::PyTuple;
 use pyo3::wrap_pyfunction;
 use rustc_hash::FxHashMap;
-use rustc_hash::FxHashSet;
 
 use bindings::numpy_bindings::overlaps_numpy::*;
 use bindings::numpy_bindings::nearest_numpy::*;
+use bindings::numpy_bindings::subtract_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
@@ -23,48 +18,13 @@ use crate::complement_single::sweep_line_complement;
 use crate::extend::{extend, extend_grp};
 use crate::max_disjoint::max_disjoint;
 use crate::merge::sweep_line_merge;
-use crate::nearest::nearest;
-use crate::outside_bounds::outside_bounds;
 use crate::overlaps::{self, count_overlaps};
-use crate::ruranges_structs::{OverlapPair, PositionType};
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
-use crate::subtract::sweep_line_subtract;
 use crate::tile::{tile, window};
 use crate::{bindings, outside_bounds, sorts};
 
 
-#[pyfunction]
-pub fn subtract_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrs2: PyReadonlyArray1<u32>,
-    starts2: PyReadonlyArray1<i64>,
-    ends2: PyReadonlyArray1<i64>,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let chrs_slice2 = chrs2.as_slice()?;
-    let starts_slice2 = starts2.as_slice()?;
-    let ends_slice2 = ends2.as_slice()?;
-
-    let result = sweep_line_subtract(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        chrs_slice2,
-        starts_slice2,
-        ends_slice2,
-    );
-    Ok((
-        result.0.into_pyarray(py).to_owned().into(),
-        result.1.into_pyarray(py).to_owned().into(),
-        result.2.into_pyarray(py).to_owned().into(),
-    ))
-}
 
 #[pyfunction]
 #[pyo3(signature = (chrs, starts, ends, sort_reverse_direction=None))]
@@ -562,6 +522,17 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(nearest_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(nearest_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(subtract_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(subtract_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
@@ -573,7 +544,6 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cluster_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(boundary_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(subtract_numpy, m)?)?;
     //     m.add_function(wrap_pyfunction!(subsequence_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy, m)?)?;

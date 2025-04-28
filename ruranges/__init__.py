@@ -39,7 +39,7 @@ _SUFFIX_TABLE = {
 RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "chromsweep_numpy": ("grp", "grp"),
     "nearest_numpy": ("grp", "grp", "pos"),
-    "strand_numpy": ("grp", "grp", "strand"),
+    "subtract_numpy": ("grp", "pos", "pos"),
 }
 
 
@@ -182,6 +182,25 @@ def nearest(
         k=k,
         include_overlaps=include_overlaps,
         direction=direction,
+    )
+
+
+def subtract(
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
+    ends2: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    groups2: NDArray[GroupIdInt] | None = None,
+) -> tuple[NDArray[GroupIdInt], NDArray[RangeInt], NDArray[RangeInt]]:
+    return _dispatch_binary(
+        "subtract_numpy",
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
     )
 
 
