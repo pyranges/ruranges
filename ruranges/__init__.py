@@ -51,6 +51,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "max_disjoint_numpy": ("idx",),
     "merge_numpy": ("grp", "pos", "pos", "count"),
     "window_numpy": ("grp", "pos", "pos"),
+    "tile_numpy": ("grp", "pos", "pos", "fraction"),
 }
 
 
@@ -513,6 +514,51 @@ def window(
         window_size=window_size,
     )
 
+def tile(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    negative_strand: NDArray[np.bool_],
+    tile_size: int,
+) -> tuple[
+    NDArray[GroupIdInt],  # indices
+    NDArray[RangeInt],    # tile starts
+    NDArray[RangeInt],    # tile ends
+    NDArray[np.float64],  # overlap fraction
+]:
+    """
+    Split each interval into fixed-size tiles.
+
+    * For positive-strand rows (`negative_strand == False`) tiling proceeds
+      from 5'→3'.
+    * For negative-strand rows (`negative_strand == True`) tiling proceeds
+      from 3'→5'.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (dtype ``RangeInt``).
+    negative_strand
+        Boolean array indicating strand per interval.
+    tile_size
+        Desired tile length in the same units as *starts/ends*.
+
+    Returns
+    -------
+    indices, tile_starts, tile_ends, overlap_fraction
+        *indices* (`uint32`) is the permutation that sorts the tiles in
+        genomic order; *overlap_fraction* reports, for each tile, the fraction
+        of its bases that overlap the original interval (useful when the last
+        tile is truncated).
+    """
+    return _dispatch_unary(
+        "tile_numpy",        # base name of the Rust wrapper
+        groups=None,                    # groups == None
+        starts=starts,
+        ends=ends,
+        negative_strand=negative_strand,
+        tile_size=tile_size,
+    )
 
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
     """Return the narrowest integer dtype that can hold *arr*,
