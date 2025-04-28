@@ -119,6 +119,72 @@ def overlaps(
     )
 
 
+def nearest(
+    *,
+    starts:  NDArray[RangeInt],
+    ends:    NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
+    ends2:   NDArray[RangeInt],
+    groups:  NDArray[GroupIdInt] | None = None,
+    groups2: NDArray[GroupIdInt] | None = None,
+    slack: int = 0,
+    k: int = 1,
+    include_overlaps: bool = True,
+    direction: Literal["forward", "backward", "any"] = "any",
+) -> tuple[NDArray[GroupIdInt], NDArray[GroupIdInt], NDArray[RangeInt]]:
+    """
+    Find the *k* nearest intervals from *(starts2, ends2)* for every interval
+    in *(starts, ends)*, optionally restricting the search to matching
+    `groups` / `groups2`.
+
+    Parameters
+    ----------
+    starts, ends, starts2, ends2
+        Coordinate arrays (all same length and dtype ``RangeInt``).
+    groups, groups2
+        Optional per-row group IDs (e.g. chromosome numbers).  If one is
+        provided, the other **must** be provided too, and both must be the
+        same length as their corresponding coordinate arrays.
+    slack
+        Maximum distance allowed between intervals (0 ⇒ no limit).
+    k
+        Number of nearest neighbours to report per query interval.
+    include_overlaps
+        If *False*, overlapping intervals are *excluded*; otherwise they count
+        with distance 0.
+    direction
+        • ``"forward"`` – only neighbours that start **after** the query ends
+        • ``"backward"`` – only neighbours that end **before** the query starts
+        • ``"any"`` (default) – both directions.
+
+    Returns
+    -------
+    idx1, idx2, dist
+        *idx1* / *idx2* are ``uint32`` indices into the first / second
+        interval sets; *dist* is the coordinate-typed distance between each
+        pair.
+
+    Raises
+    ------
+    ValueError
+        If the input lengths don’t match or only one of ``groups`` /
+        ``groups2`` is supplied.
+    """
+    return _dispatch_binary(
+        "nearest_numpy",
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
+        slack,
+        k=k,
+        include_overlaps=include_overlaps,
+        direction=direction,
+    )
+
+
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
     """Return the narrowest integer dtype that can hold *arr*,
     preserving the signed/unsigned kind of the original dtype.
@@ -419,9 +485,6 @@ def _dispatch_binary(
         groups_validated, groups2_validated
     )  # signed/unsigned kept
     pos_tmp = _common_integer_dtype(starts, ends, starts2, ends2)
-
-    print(f"Got {grp_orig} but will downcast to {grp_tmp}")
-    print(f"Got {pos_orig} but will downcast to {pos_tmp}")
 
     # Slack range check (only if the caller supplied slack > 0)
     slack = extra_kw.get("slack", 0)

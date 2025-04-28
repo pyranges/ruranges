@@ -14,8 +14,8 @@ use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 
 use bindings::numpy_bindings::overlaps_numpy::*;
+use bindings::numpy_bindings::nearest_numpy::*;
 
-use crate::bindings::numpy_bindings::overlaps_numpy::chromsweep_numpy;
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
 use crate::complement::sweep_line_non_overlaps;
@@ -25,7 +25,6 @@ use crate::max_disjoint::max_disjoint;
 use crate::merge::sweep_line_merge;
 use crate::nearest::nearest;
 use crate::outside_bounds::outside_bounds;
-// use crate::nearest::nearest;
 use crate::overlaps::{self, count_overlaps};
 use crate::ruranges_structs::{OverlapPair, PositionType};
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
@@ -34,53 +33,6 @@ use crate::subtract::sweep_line_subtract;
 use crate::tile::{tile, window};
 use crate::{bindings, outside_bounds, sorts};
 
-// use crate::bindings::polars_bindings::{
-//     self, chromsweep_polars, cluster_polars, sweep_line_overlaps_set1_polars,
-// };
-
-
-
-#[pyfunction]
-#[pyo3(signature = (*, chrs, starts, ends, chrs2, starts2, ends2, slack=0, k=1, include_overlaps=true, direction="any"))]
-pub fn nearest_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrs2: PyReadonlyArray1<u32>,
-    starts2: PyReadonlyArray1<i64>,
-    ends2: PyReadonlyArray1<i64>,
-    slack: i64,
-    k: usize,
-    include_overlaps: bool,
-    direction: &str,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>, Py<PyArray1<i64>>)> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let chrs_slice2 = chrs2.as_slice()?;
-    let starts_slice2 = starts2.as_slice()?;
-    let ends_slice2 = ends2.as_slice()?;
-
-    let result = nearest(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        chrs_slice2,
-        starts_slice2,
-        ends_slice2,
-        slack,
-        k,
-        include_overlaps,
-        direction,
-    );
-    let res = Ok((
-        result.0.into_pyarray(py).to_owned().into(),
-        result.1.into_pyarray(py).to_owned().into(),
-        result.2.into_pyarray(py).to_owned().into(),
-    ));
-    res
-}
 
 #[pyfunction]
 pub fn subtract_numpy(
@@ -140,122 +92,6 @@ pub fn sort_intervals_numpy(
     Ok(indexes.into_pyarray(py).to_owned().into())
 }
 
-// #[pyfunction]
-// pub fn nearest_intervals_unique_k_numpy(
-//     chrs: PyReadonlyArray1<i64>,
-//     starts: PyReadonlyArray1<i64>,
-//     ends: PyReadonlyArray1<i64>,
-//     idxs: PyReadonlyArray1<i64>,
-//     chrs2: PyReadonlyArray1<i64>,
-//     starts2: PyReadonlyArray1<i64>,
-//     ends2: PyReadonlyArray1<i64>,
-//     idxs2: PyReadonlyArray1<i64>,
-//     k: usize,
-//     overlaps: bool,
-//     direction: &str,
-//     py: Python,
-// ) -> PyResult<(Py<PyArray1<i64>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-//     let dir: Direction = direction.parse().expect("Invalid direction, must be forward, backwards, or any.");
-//
-//     let chrs_slice = chrs.as_slice()?;
-//     let starts_slice = starts.as_slice()?;
-//     let ends_slice = ends.as_slice()?;
-//     let idxs_slice = idxs.as_slice()?;
-//     let chrs_slice2 = chrs2.as_slice()?;
-//     let starts_slice2 = starts2.as_slice()?;
-//     let ends_slice2 = ends2.as_slice()?;
-//     let idxs_slice2 = idxs2.as_slice()?;
-//
-//     let mut right_result = Some((Vec::new(), Vec::new(), Vec::new()));
-//     let mut left_result = Some((Vec::new(), Vec::new(), Vec::new()));
-//     let mut overlap_result: Option<(Vec<i64>, Vec<i64>)> = None;
-//
-//     rayon::scope(|s| {
-//         let right_ref = &mut right_result;
-//         let left_ref = &mut left_result;
-//         let overlap_ref = &mut overlap_result;
-//         if dir != Direction::Forward {
-//             s.spawn(|_| {
-//                 let tmp = sweep_line_k_nearest(
-//                     chrs_slice,
-//                     ends_slice,
-//                     idxs_slice,
-//                     chrs_slice2,
-//                     starts_slice2,
-//                     idxs_slice2,
-//                     false,
-//                     k,
-//                 );
-//                 *left_ref = Some(tmp);
-//             });
-//         }
-//         if dir != Direction::Backward {
-//             s.spawn(|_| {
-//                 let tmp = sweep_line_k_nearest(
-//                     chrs_slice,
-//                     starts_slice,
-//                     idxs_slice,
-//                     chrs_slice2,
-//                     ends_slice2,
-//                     idxs_slice2,
-//                     true,
-//                     k,
-//                 );
-//                 *right_ref = Some(tmp);
-//             });
-//         }
-//         if overlaps {
-//             s.spawn(|_| {
-//                         let tmp_overlap = sweep_line_overlaps(
-//                             chrs_slice,
-//                             starts_slice,
-//                             ends_slice,
-//                             idxs_slice,
-//                             chrs_slice2,
-//                             starts_slice2,
-//                             ends_slice2,
-//                             idxs_slice2,
-//                             0,
-//                         );
-//                         *overlap_ref = Some(tmp_overlap);
-//                     });
-//             }
-//             });
-//     let (r_idxs1, r_idxs2, r_dists) = right_result.unwrap();
-//     let (l_idxs1, l_idxs2, l_dists) = left_result.unwrap();
-//
-//     let (_out_idx1, _out_idx2, _out_dists) = pick_k_distances_combined(
-//         &l_idxs1,
-//         &l_idxs2,
-//         &l_dists,
-//         &r_idxs1,
-//         &r_idxs2,
-//         &r_dists,
-//         k,
-//     );
-//
-//     let (out_idx1, out_idx2, out_dists) = if overlaps {
-//         let (o_idxs1, o_idxs2) = overlap_result.unwrap();
-//         let dists = vec![0; o_idxs1.len()];
-//         pick_k_distances_combined(
-//             &_out_idx1,
-//             &_out_idx2,
-//             &_out_dists,
-//             &o_idxs1,
-//             &o_idxs2,
-//             &dists,
-//             k,
-//         )
-//     } else {
-//         (_out_idx1, _out_idx2, _out_dists)
-//     };
-//
-//     Ok((
-//         out_idx1.into_pyarray(py).to_owned().into(),
-//         out_idx2.into_pyarray(py).to_owned().into(),
-//         out_dists.into_pyarray(py).to_owned().into(),
-//     ))
-// }
 
 #[pyfunction]
 #[pyo3(signature = (chrs, starts, ends, slack=0))]
@@ -703,7 +539,6 @@ pub fn genome_bounds_numpy(
 #[pymodule]
 #[pyo3(name = "ruranges")]
 fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(chromsweep_numpy, m)?)?;
 
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u32_i64, m)?)?;
@@ -716,10 +551,20 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(nearest_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(nearest_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(nearest_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(tile_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy, m)?)?;
