@@ -1,7 +1,7 @@
-use crate::{ruranges_structs::PositionType, sorts};
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
 
-pub fn sweep_line_cluster<T: PositionType>(
-    chrs: &[u32],
+pub fn sweep_line_cluster<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     slack: T,

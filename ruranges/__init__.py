@@ -43,6 +43,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "complement_overlaps_numpy": ("grp",),
     "count_overlaps_numpy": ("count",),
     "sort_intervals_numpy": ("idx",),
+    "cluster_numpy": ("idx", "count"),
 }
 
 
@@ -345,6 +346,42 @@ def sort_intervals(
         starts,
         ends,
         sort_reverse_direction=sort_reverse_direction,
+    )
+
+
+def cluster(
+    starts: NDArray[RangeInt],
+    ends:   NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    slack:  int = 0,
+) -> tuple[NDArray[GroupIdInt], NDArray[GroupIdInt]]:
+    """
+    Group nearby/overlapping intervals into clusters.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (same dtype ``RangeInt``).
+    groups
+        Optional group IDs (chromosome, contig …); clustering is performed
+        *within* each group.  If omitted, all intervals are considered to be
+        in the same group.
+    slack
+        Two intervals belong to the same cluster if their gap is ≤ `slack`
+        (0 ⇒ they must touch/overlap).
+
+    Returns
+    -------
+    cluster_ids , order_idx : tuple of ``uint32`` arrays
+        *cluster_ids* gives the cluster label per input row; *order_idx* is
+        the permutation that sorts the rows by cluster then position.
+    """
+    return _dispatch_unary(
+        "cluster_numpy",      # dispatch key – matches the Rust wrapper base
+        groups,
+        starts,
+        ends,
+        slack=slack,
     )
 
 

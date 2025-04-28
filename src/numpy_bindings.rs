@@ -13,9 +13,9 @@ use bindings::numpy_bindings::subtract_numpy::*;
 use bindings::numpy_bindings::complement_overlaps_numpy::*;
 use bindings::numpy_bindings::count_overlaps_numpy::*;
 use bindings::numpy_bindings::sort_intervals_numpy::*;
+use bindings::numpy_bindings::cluster_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
-use crate::cluster::sweep_line_cluster;
 use crate::complement_single::sweep_line_complement;
 use crate::extend::{extend, extend_grp};
 use crate::max_disjoint::max_disjoint;
@@ -25,27 +25,6 @@ use crate::split::sweep_line_split;
 use crate::tile::{tile, window};
 use crate::{bindings, outside_bounds};
 
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, slack=0))]
-pub fn cluster_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    slack: i64,
-    py: Python,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>)> {
-    let (cluster_ids, indices) = sweep_line_cluster(
-        chrs.as_slice()?,
-        starts.as_slice()?,
-        ends.as_slice()?,
-        slack,
-    );
-    Ok((
-        cluster_ids.into_pyarray(py).to_owned().into(),
-        indices.into_pyarray(py).to_owned().into(),
-    ))
-}
 
 #[pyfunction]
 #[pyo3(signature = (starts, ends, negative_strand, tile_size))]
@@ -480,7 +459,16 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sort_intervals_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(sort_intervals_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(cluster_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(cluster_numpy_u8_i16, m)?)?;
 
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy, m)?)?;
