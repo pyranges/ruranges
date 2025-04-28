@@ -1,10 +1,10 @@
-use crate::{ruranges_structs::PositionType, sorts::build_sorted_intervals};
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts::build_sorted_intervals};
 
 /// Returns a subset of indexes corresponding to a maximal set of disjoint intervals.
 /// `groups`, `starts`, and `ends` must have the same length.
 /// `slack` controls how far apart intervals must be to be considered non-overlapping.
-pub fn max_disjoint<T: PositionType>(
-    groups: &[u32],
+pub fn max_disjoint<G:GroupType, T: PositionType>(
+    groups: &[G],
     starts: &[T],
     ends: &[T],
     slack: T,

@@ -44,6 +44,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "count_overlaps_numpy": ("count",),
     "sort_intervals_numpy": ("idx",),
     "cluster_numpy": ("idx", "count"),
+    "max_disjoint_numpy": ("idx",),
 }
 
 
@@ -377,7 +378,48 @@ def cluster(
         the permutation that sorts the rows by cluster then position.
     """
     return _dispatch_unary(
-        "cluster_numpy",      # dispatch key – matches the Rust wrapper base
+        "max_disjoint_numpy",      # dispatch key – matches the Rust wrapper base
+        groups,
+        starts,
+        ends,
+        slack=slack,
+    )
+
+
+def max_disjoint(
+    *,
+    starts: NDArray[RangeInt],
+    ends:   NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    slack:  int = 0,
+) -> NDArray[GroupIdInt]:
+    """
+    Select a *maximum* subset of mutually non-overlapping intervals.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (`dtype == RangeInt`, same length).
+    groups
+        Optional group IDs (chromosome, contig …).  The algorithm is applied
+        independently within each group; omit to treat all intervals together.
+    slack
+        Two intervals are considered overlapping if their gap is ≤ `slack`
+        (0 ⇒ they must touch/intersect).  Increase to allow a small gap.
+
+    Returns
+    -------
+    indices : NDArray[GroupIdInt]
+        ``uint32`` array of *row indices* in the **input** that comprise the
+        largest disjoint subset.
+
+    Notes
+    -----
+    The heavy lifting happens in Rust; this wrapper simply dispatches to the
+    correct concrete wrapper based on the NumPy dtypes you provide.
+    """
+    return _dispatch_unary(
+        "max_disjoint_numpy",   # base name of the Rust wrapper
         groups,
         starts,
         ends,
