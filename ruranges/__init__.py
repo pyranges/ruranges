@@ -42,6 +42,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "subtract_numpy": ("grp", "pos", "pos"),
     "complement_overlaps_numpy": ("grp",),
     "count_overlaps_numpy": ("count",),
+    "sort_intervals_numpy": ("idx",),
 }
 
 
@@ -123,11 +124,11 @@ def overlaps(
 
 def nearest(
     *,
-    starts:  NDArray[RangeInt],
-    ends:    NDArray[RangeInt],
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
     starts2: NDArray[RangeInt],
-    ends2:   NDArray[RangeInt],
-    groups:  NDArray[GroupIdInt] | None = None,
+    ends2: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
     slack: int = 0,
     k: int = 1,
@@ -208,11 +209,11 @@ def subtract(
 
 def complement_overlaps(
     *,
-    starts:  NDArray[RangeInt],
-    ends:    NDArray[RangeInt],
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
     starts2: NDArray[RangeInt],
-    ends2:   NDArray[RangeInt],
-    groups:  NDArray[GroupIdInt] | None = None,
+    ends2: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
     slack: int = 0,
 ) -> NDArray[GroupIdInt]:
@@ -263,11 +264,11 @@ def complement_overlaps(
 
 
 def count_overlaps(
-    starts:  NDArray[RangeInt],
-    ends:    NDArray[RangeInt],
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
     starts2: NDArray[RangeInt],
-    ends2:   NDArray[RangeInt],
-    groups:  NDArray[GroupIdInt] | None = None,
+    ends2: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
     slack: int = 0,
 ) -> NDArray[GroupIdInt]:
@@ -302,6 +303,48 @@ def count_overlaps(
         starts2,
         ends2,
         slack,
+    )
+
+
+def sort_intervals(
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    sort_reverse_direction: NDArray[np.bool_] | None = None,
+) -> NDArray[GroupIdInt]:
+    """
+    Return the permutation that sorts *(starts, ends)* (and their optional
+    ``groups``) in ascending genomic order.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (dtype ``RangeInt``) of equal length.
+    groups
+        Optional per-row group IDs (chromosomes, contigs, …).  If supplied, the
+        sort is performed *within* each group; otherwise intervals are sorted
+        globally.
+    sort_reverse_direction
+        Optional boolean array (same length as *starts*) marking rows that
+        should be ordered **descendingly** within their group/position tier.
+        A value of *None* (default) means no per-row reversal.
+
+    Returns
+    -------
+    perm : NDArray[GroupIdInt]
+        ``uint32`` array whose elements are the indices that sort the input.
+
+    Notes
+    -----
+    *The heavy lifting happens in Rust; this wrapper only dispatches to the
+    correct concrete wrapper based on dtypes.*
+    """
+    return _dispatch_unary(
+        "sort_intervals_numpy",  # selects the Rust wrapper
+        groups,
+        starts,
+        ends,
+        sort_reverse_direction=sort_reverse_direction,
     )
 
 
@@ -556,20 +599,33 @@ def _resolve_rust_fn(
 
 def _dispatch_unary(
     prefix: str,
-    chroms: NDArray,
+    groups: NDArray,
     starts: NDArray,
     ends: NDArray,
     *extra_pos_args: Any,
     **extra_kw: Any,
 ) -> Any:
     """Common body for functions that take one (chroms, starts, ends) trio."""
-    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, chroms.dtype, starts.dtype)
+    roles = RETURN_SIGNATURES[prefix]
 
-    chroms_c = _cast(chroms, grp_t)
+    length = check_array_lengths(starts, ends, groups)
+
+    groups_validated = validate_groups(length, groups)
+
+    # ------------------------------------------------------------------
+    # 1.  Remember caller-visible dtypes
+    # ------------------------------------------------------------------
+    grp_orig: np.dtype = groups_validated.dtype
+    pos_orig: np.dtype = starts.dtype
+
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, groups.dtype, starts.dtype)
+
+    chroms_c = _cast(groups, grp_t)
     starts_c = _cast(starts, pos_t)
     ends_c = _cast(ends, pos_t)
 
-    return rust_fn(chroms_c, starts_c, ends_c, *extra_pos_args, **extra_kw)
+    raw = rust_fn(chroms_c, starts_c, ends_c, *extra_pos_args, **extra_kw)
+    return cast_kernel_outputs(prefix, raw, roles, grp_t, pos_t, grp_orig, pos_orig)
 
 
 def _dispatch_binary(

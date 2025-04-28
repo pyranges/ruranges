@@ -12,6 +12,7 @@ use bindings::numpy_bindings::nearest_numpy::*;
 use bindings::numpy_bindings::subtract_numpy::*;
 use bindings::numpy_bindings::complement_overlaps_numpy::*;
 use bindings::numpy_bindings::count_overlaps_numpy::*;
+use bindings::numpy_bindings::sort_intervals_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
@@ -22,35 +23,7 @@ use crate::merge::sweep_line_merge;
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::tile::{tile, window};
-use crate::{bindings, outside_bounds, sorts};
-
-
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, sort_reverse_direction=None))]
-pub fn sort_intervals_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    sort_reverse_direction: Option<PyReadonlyArray1<bool>>,
-    py: Python,
-) -> PyResult<Py<PyArray1<u32>>> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let sort_reverse_direction_slice = match &sort_reverse_direction {
-        Some(reverse) => Some(reverse.as_slice()?),
-        None => None,
-    };
-
-    let indexes = sorts::sort_order_idx(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        sort_reverse_direction_slice,
-    );
-    Ok(indexes.into_pyarray(py).to_owned().into())
-}
+use crate::{bindings, outside_bounds};
 
 
 #[pyfunction]
@@ -496,13 +469,24 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(count_overlaps_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(count_overlaps_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sort_intervals_numpy_u8_i16, m)?)?;
+
+    m.add_function(wrap_pyfunction!(cluster_numpy, m)?)?;
+
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(tile_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(sort_intervals_numpy, m)?)?;
     // m.add_function(wrap_pyfunction!(nearest_intervals_unique_k_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(cluster_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(complement_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(boundary_numpy, m)?)?;
     //     m.add_function(wrap_pyfunction!(subsequence_numpy, m)?)?;

@@ -1,6 +1,3 @@
-use num_traits::{PrimInt, Signed, Zero};
-use std::hash::Hash; // You'll need the num-traits crate
-
 use radsort::sort_by_key;
 
 use crate::ruranges_structs::Event;
@@ -163,8 +160,8 @@ pub fn build_sorted_sequence_intervals(
     intervals
 }
 
-pub fn sort_order_idx<T: PositionType>(
-    chrs: &[u32],
+pub fn sort_order_idx<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     sort_reverse_direction: Option<&[bool]>,
