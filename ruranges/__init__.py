@@ -40,6 +40,8 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "chromsweep_numpy": ("grp", "grp"),
     "nearest_numpy": ("grp", "grp", "pos"),
     "subtract_numpy": ("grp", "pos", "pos"),
+    "complement_overlaps_numpy": ("grp",),
+    "count_overlaps_numpy": ("count",),
 }
 
 
@@ -201,6 +203,105 @@ def subtract(
         groups2,
         starts2,
         ends2,
+    )
+
+
+def complement_overlaps(
+    *,
+    starts:  NDArray[RangeInt],
+    ends:    NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
+    ends2:   NDArray[RangeInt],
+    groups:  NDArray[GroupIdInt] | None = None,
+    groups2: NDArray[GroupIdInt] | None = None,
+    slack: int = 0,
+) -> NDArray[GroupIdInt]:
+    """
+    Return the indices of intervals in *(starts, ends)* that **do not** overlap
+    *any* interval in *(starts2, ends2)*, subject to an optional `slack`.
+
+    Parameters
+    ----------
+    starts, ends, starts2, ends2
+        Coordinate arrays. All four must have the same dtype ``RangeInt``.
+    groups, groups2
+        Optional per-row group IDs (e.g. chromosome numbers).  If one is
+        supplied, the other **must** be supplied too.  Overlap checks are then
+        performed *within* matching groups only.
+    slack
+        Two intervals are considered overlapping if their distance is
+        *strictly* less than or equal to `slack`.  A value of 0 (default)
+        means they must actually touch or intersect.
+
+    Returns
+    -------
+    idx : NDArray[GroupIdInt]
+        A `uint32` array of indices into the *first* interval set indicating
+        which rows have **no** overlaps in the second set.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> starts  = np.array([ 1, 10, 30], dtype=np.int32)
+    >>> ends    = np.array([ 5, 15, 35], dtype=np.int32)
+    >>> starts2 = np.array([ 3, 20],     dtype=np.int32)
+    >>> ends2   = np.array([ 6, 25],     dtype=np.int32)
+    >>> complement_overlaps(starts=starts, ends=ends,
+    ...                     starts2=starts2, ends2=ends2)
+    array([1, 2], dtype=uint32)
+    """
+    return _dispatch_binary(
+        "complement_overlaps_numpy",  # selects the correct Rust wrapper
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
+        slack,
+    )
+
+
+def count_overlaps(
+    starts:  NDArray[RangeInt],
+    ends:    NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
+    ends2:   NDArray[RangeInt],
+    groups:  NDArray[GroupIdInt] | None = None,
+    groups2: NDArray[GroupIdInt] | None = None,
+    slack: int = 0,
+) -> NDArray[GroupIdInt]:
+    """
+    For every interval in *(starts, ends)*, count how many intervals in
+    *(starts2, ends2)* overlap it (distance ≤ ``slack``).
+
+    Parameters
+    ----------
+    starts, ends, starts2, ends2
+        Coordinate arrays (all same dtype ``RangeInt``).
+    groups, groups2
+        Optional group IDs (chromosomes, contigs, …).  If one is given, the
+        other **must** be given too.  Counts are computed *within* matching
+        groups only.
+    slack
+        Two intervals are considered overlapping if their gap is ≤ `slack`
+        (0 ⇒ they must actually touch/intersect).
+
+    Returns
+    -------
+    counts : NDArray[GroupIdInt]
+        ``uint32`` array, length == ``len(starts)``, holding the per-row
+        overlap counts.
+    """
+    return _dispatch_binary(
+        "count_overlaps_numpy",
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
+        slack,
     )
 
 

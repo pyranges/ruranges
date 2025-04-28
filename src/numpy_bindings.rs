@@ -10,15 +10,15 @@ use rustc_hash::FxHashMap;
 use bindings::numpy_bindings::overlaps_numpy::*;
 use bindings::numpy_bindings::nearest_numpy::*;
 use bindings::numpy_bindings::subtract_numpy::*;
+use bindings::numpy_bindings::complement_overlaps_numpy::*;
+use bindings::numpy_bindings::count_overlaps_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
 use crate::cluster::sweep_line_cluster;
-use crate::complement::sweep_line_non_overlaps;
 use crate::complement_single::sweep_line_complement;
 use crate::extend::{extend, extend_grp};
 use crate::max_disjoint::max_disjoint;
 use crate::merge::sweep_line_merge;
-use crate::overlaps::{self, count_overlaps};
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::tile::{tile, window};
@@ -289,36 +289,6 @@ pub fn spliced_subsequence_per_row_numpy(
 
 
 #[pyfunction]
-pub fn complement_overlaps_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrs2: PyReadonlyArray1<u32>,
-    starts2: PyReadonlyArray1<i64>,
-    ends2: PyReadonlyArray1<i64>,
-    slack: i64,
-) -> PyResult<Py<PyArray1<u32>>> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let chrs_slice2 = chrs2.as_slice()?;
-    let starts_slice2 = starts2.as_slice()?;
-    let ends_slice2 = ends2.as_slice()?;
-
-    let result = sweep_line_non_overlaps(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        chrs_slice2,
-        starts_slice2,
-        ends_slice2,
-        slack,
-    );
-    Ok(result.into_pyarray(py).to_owned().into())
-}
-
-#[pyfunction]
 pub fn complement_numpy(
     py: Python,
     chrs: PyReadonlyArray1<u32>,
@@ -367,35 +337,6 @@ pub fn complement_numpy(
     ))
 }
 
-#[pyfunction]
-pub fn count_overlaps_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrs2: PyReadonlyArray1<u32>,
-    starts2: PyReadonlyArray1<i64>,
-    ends2: PyReadonlyArray1<i64>,
-    slack: i64,
-) -> PyResult<Py<PyArray1<u32>>> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-    let chrs_slice2 = chrs2.as_slice()?;
-    let starts_slice2 = starts2.as_slice()?;
-    let ends_slice2 = ends2.as_slice()?;
-
-    let result = count_overlaps(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        chrs_slice2,
-        starts_slice2,
-        ends_slice2,
-        slack,
-    );
-    Ok(result.into_pyarray(py).to_owned().into())
-}
 
 #[pyfunction]
 pub fn boundary_numpy(
@@ -474,7 +415,7 @@ pub fn genome_bounds_numpy(
         .map(|(&id, &len)| (id, len))
         .collect::<HashMap<_, _>>();
 
-    let (indices, new_starts, new_ends) = outside_bounds(
+    let (indices, new_starts, new_ends) = outside_bounds::outside_bounds(
         groups_slice,
         starts_slice,
         ends_slice,
@@ -533,8 +474,28 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(subtract_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(subtract_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(count_overlaps_numpy, m)?)?;
-    m.add_function(wrap_pyfunction!(complement_overlaps_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_overlaps_numpy_u8_i16, m)?)?;
+
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(count_overlaps_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(extend_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(tile_numpy, m)?)?;

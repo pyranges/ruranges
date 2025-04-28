@@ -1,12 +1,12 @@
-use crate::{ruranges_structs::PositionType, sorts};
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
 
 use rustc_hash::FxHashSet;
 
-pub fn sweep_line_non_overlaps<T: PositionType>(
-    chrs: &[u32],
+pub fn sweep_line_non_overlaps<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
-    chrs2: &[u32],
+    chrs2: &[G],
     starts2: &[T],
     ends2: &[T],
     slack: T,
