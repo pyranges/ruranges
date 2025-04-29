@@ -13,3 +13,5 @@ pub mod boundary_numpy;
 pub mod extend_numpy;
 pub mod max_disjoint_numpy;
 pub mod spliced_subsequence_numpy;
+pub mod split_numpy;
+pub mod genome_bounds_numpy;

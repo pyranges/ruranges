@@ -56,6 +56,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "boundary_numpy": ("index", "pos", "pos", "count"),
     "spliced_subsequence_numpy": ("index", "pos", "pos"),
     "spliced_subsequence_per_row_numpy": ("index", "pos", "pos"),
+    "split_numpy": ("index", "pos", "pos"),
 }
 
 
@@ -771,6 +772,55 @@ def spliced_subsequence_per_row(
         ends_subseq=ends_subseq,
         force_plus_strand=force_plus_strand,
     )
+
+
+def split(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    slack: int = 0,
+    between: bool = False,
+) -> tuple[
+    NDArray[GroupIdInt],  # indices
+    NDArray[RangeInt],    # split starts
+    NDArray[RangeInt],    # split ends
+]:
+    """
+    Split intervals wherever the gap **exceeds** `slack`.
+
+    If *between* is *True*, emit only the *gaps* (regions between blocks);
+    otherwise emit the original blocks split at the large gaps.
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (dtype ``RangeInt``).
+    groups
+        Optional per-row chromosome/contig IDs—splitting is performed within
+        each group independently.
+    slack
+        Maximum internal gap tolerated **within** a block.  A gap >`slack`
+        triggers a split.
+    between
+        If *True*, return the gaps; if *False* (default), return the block
+        fragments.
+
+    Returns
+    -------
+    indices, part_starts, part_ends
+        *indices* (`uint32`) identifies the input interval that produced each
+        output fragment or gap.
+    """
+    return _dispatch_unary(
+        "split_numpy",   # base name of the Rust wrapper
+        starts,
+        ends,
+        groups,
+        slack=slack,
+        between=between,
+    )
+
 
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
     """Return the narrowest integer dtype that can hold *arr*,

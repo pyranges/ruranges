@@ -21,33 +21,9 @@ use bindings::numpy_bindings::extend_numpy::*;
 use bindings::numpy_bindings::complement_numpy::*;
 use bindings::numpy_bindings::boundary_numpy::*;
 use bindings::numpy_bindings::spliced_subsequence_numpy::*;
+use bindings::numpy_bindings::split_numpy::*;
 
-use crate::split::sweep_line_split;
 use crate::{bindings, outside_bounds};
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, slack=0, between=false))]
-pub fn split_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    slack: i64,
-    between: bool,
-    py: Python,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let (indices, starts, ends) = sweep_line_split(
-        chrs.as_slice()?,
-        starts.as_slice()?,
-        ends.as_slice()?,
-        slack,
-        between,
-    );
-    Ok((
-        indices.into_pyarray(py).to_owned().into(),
-        starts.into_pyarray(py).to_owned().into(),
-        ends.into_pyarray(py).to_owned().into(),
-    ))
-}
 
 
 #[derive(Debug, PartialEq)]
@@ -282,7 +258,16 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(split_numpy_u8_i16, m)?)?;
 
     m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
 
