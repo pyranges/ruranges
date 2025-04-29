@@ -53,6 +53,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "window_numpy": ("grp", "pos", "pos"),
     "tile_numpy": ("grp", "pos", "pos", "fraction"),
     "complement_numpy": ("grp", "pos", "pos", "index"),
+    "boundary_numpy": ("index", "pos", "pos", "count"),
 }
 
 
@@ -529,6 +530,46 @@ def complement(
         chrom_len_ids=chrom_len_ids,
         chrom_lens=chrom_lens,
         include_first_interval=include_first_interval,
+    )
+
+def boundary(
+    *,
+    starts: NDArray[RangeInt],
+    ends:   NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+) -> tuple[
+    NDArray[GroupIdInt],  # indices
+    NDArray[RangeInt],    # boundary starts
+    NDArray[RangeInt],    # boundary ends
+    NDArray[GroupIdInt],  # counts
+]:
+    """
+    Collapse adjacent/overlapping intervals into *boundary segments*.
+
+    Each boundary represents a contiguous genomic stretch where at least one
+    interval is present.  Returns the permutation (indices) of the *first*
+    interval contributing to each boundary and how many intervals overlapped
+    the segment (*counts*).
+
+    Parameters
+    ----------
+    starts, ends
+        Coordinate arrays (dtype ``RangeInt``).
+    groups
+        Optional per-row chromosome/contig IDs.  If supplied, boundaries are
+        computed within each group independently.
+
+    Returns
+    -------
+    indices, boundary_starts, boundary_ends, counts
+        All arrays are `uint32` for IDs/counts and ``RangeInt`` for
+        coordinates, matching the rest of the API.
+    """
+    return _dispatch_unary(
+        "boundary_numpy",   # base name of the Rust wrapper
+        starts,
+        ends,
+        groups,
     )
 
 
