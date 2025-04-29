@@ -22,8 +22,9 @@ use bindings::numpy_bindings::complement_numpy::*;
 use bindings::numpy_bindings::boundary_numpy::*;
 use bindings::numpy_bindings::spliced_subsequence_numpy::*;
 use bindings::numpy_bindings::split_numpy::*;
+use bindings::numpy_bindings::genome_bounds_numpy::*;
 
-use crate::{bindings, outside_bounds};
+use crate::bindings;
 
 
 #[derive(Debug, PartialEq)]
@@ -46,58 +47,6 @@ impl FromStr for Direction {
     }
 }
 
-#[pyfunction]
-#[pyo3(signature = (groups, starts, ends, chrom_ids, chrom_length, clip=false, only_right=false))]
-pub fn genome_bounds_numpy(
-    groups: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    chrom_ids: PyReadonlyArray1<u32>,
-    chrom_length: PyReadonlyArray1<i64>,
-    clip: bool,
-    only_right: bool,
-    py: Python,
-) -> PyResult<(Py<PyArray1<usize>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let groups_slice = groups.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-
-    let ids = chrom_ids.as_array();
-    let lengths = chrom_length.as_array();
-
-    if ids.len() != lengths.len() {
-        return Err(PyValueError::new_err(
-            "chrom_ids and chrom_length must have the same length",
-        ));
-    }
-
-    let map = ids
-        .iter()
-        .zip(lengths.iter())
-        .map(|(&id, &len)| (id, len))
-        .collect::<HashMap<_, _>>();
-
-    let (indices, new_starts, new_ends) = outside_bounds::outside_bounds(
-        groups_slice,
-        starts_slice,
-        ends_slice,
-        &map,
-        clip,
-        only_right,
-    )
-    .map_err(|e| PyValueError::new_err(e))?;
-
-    // Convert the results back to NumPy arrays.
-    let indices_array = PyArray1::from_vec(py, indices);
-    let new_starts_array = PyArray1::from_vec(py, new_starts);
-    let new_ends_array = PyArray1::from_vec(py, new_ends);
-
-    Ok((
-        indices_array.to_owned().into(),
-        new_starts_array.to_owned().into(),
-        new_ends_array.to_owned().into(),
-    ))
-}
 
 #[pymodule]
 #[pyo3(name = "ruranges")]
@@ -269,7 +218,16 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(split_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(split_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i16, m)?)?;
 
     Ok(())
 }

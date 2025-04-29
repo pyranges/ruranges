@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-pub fn outside_bounds(
-    groups: &[u32],
-    starts: &[i64],
-    ends: &[i64],
-    chromsizes: &HashMap<u32, i64>,
+use crate::ruranges_structs::{GroupType, PositionType};
+
+pub fn outside_bounds<G: GroupType, T: PositionType>(
+    groups: &[G],
+    starts: &[T],
+    ends: &[T],
+    chromsizes: &HashMap<G, T>,
     clip: bool,
     only_right: bool,
-) -> Result<(Vec<usize>, Vec<i64>, Vec<i64>), String> {
+) -> Result<(Vec<usize>, Vec<T>, Vec<T>), String> {
     if starts.len() != ends.len() || groups.len() != starts.len() {
         return Err("Input slices must all have the same length.".to_string());
     }
@@ -21,7 +23,7 @@ pub fn outside_bounds(
         // Look up the chromosome size; error if missing.
         let size = chromsizes
             .get(&chrom)
-            .ok_or_else(|| format!("Chromosome {} not found in chromsizes", chrom))?;
+            .ok_or_else(|| format!("Chromosome missing in chromsizes"))?;
         let orig_start = starts[i];
         let orig_end = ends[i];
 
@@ -32,7 +34,7 @@ pub fn outside_bounds(
                     continue; // skip interval
                 }
             } else {
-                if orig_end > *size || orig_start < 0 {
+                if orig_end > *size || orig_start < T::zero() {
                     continue; // skip interval
                 }
             }
@@ -52,10 +54,10 @@ pub fn outside_bounds(
                 new_ends.push(clipped_end);
             } else {
                 // Clip both sides.
-                if orig_start >= *size || orig_end <= 0 {
+                if orig_start >= *size || orig_end <= T::zero() {
                     continue;
                 }
-                let clipped_start = if orig_start < 0 { 0 } else { orig_start };
+                let clipped_start = if orig_start < T::zero() { T::zero() } else { orig_start };
                 let clipped_end = if orig_end > *size { *size } else { orig_end };
                 indices.push(i);
                 new_starts.push(clipped_start);

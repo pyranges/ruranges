@@ -57,6 +57,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "spliced_subsequence_numpy": ("index", "pos", "pos"),
     "spliced_subsequence_per_row_numpy": ("index", "pos", "pos"),
     "split_numpy": ("index", "pos", "pos"),
+    "genome_bounds_numpy": ("index", "pos", "pos"),
 }
 
 
