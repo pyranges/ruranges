@@ -52,6 +52,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "merge_numpy": ("grp", "pos", "pos", "count"),
     "window_numpy": ("grp", "pos", "pos"),
     "tile_numpy": ("grp", "pos", "pos", "fraction"),
+    "complement_numpy": ("grp", "pos", "pos", "index"),
 }
 
 
@@ -471,6 +472,63 @@ def max_disjoint(
         starts=starts,
         ends=ends,
         slack=slack,
+    )
+
+
+def complement(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None,
+    chrom_len_ids: NDArray[GroupIdInt],
+    chrom_lens: NDArray[RangeInt],
+    slack: int = 0,
+    include_first_interval: bool = False,
+) -> tuple[
+    NDArray[GroupIdInt],  # out_chrs
+    NDArray[RangeInt],    # out_starts
+    NDArray[RangeInt],    # out_ends
+    NDArray[GroupIdInt],  # out_idx
+]:
+    """
+    Return the complement (gaps) of an interval set within chromosome bounds.
+
+    Parameters
+    ----------
+    starts, ends
+        Input coordinates (`dtype == RangeInt`).
+    groups
+        Optional per-row chromosome IDs.  If *None*, *chrom_len_ids* must
+        describe a *single* chromosome that covers all intervals.
+    chrom_len_ids, chrom_lens
+        Parallel arrays mapping chromosome IDs to their total length.
+    slack
+        Two intervals are considered contiguous if the gap between them is
+        ≤ `slack`.  Gaps smaller than or equal to `slack` are *not* reported.
+    include_first_interval
+        If *True*, emit a gap *before* the first input interval on each
+        chromosome (from 0 to `start[0] − 1`).
+
+    Returns
+    -------
+    out_chrs, out_starts, out_ends, out_idx
+        `out_idx` holds the 0-based index of the input interval immediately
+        **following** each gap (useful for attribution).
+
+    Notes
+    -----
+    All heavy lifting happens in Rust; this wrapper only dispatches to the
+    concrete wrapper that matches your NumPy dtypes.
+    """
+    return _dispatch_unary(
+        "complement_numpy",
+        starts,
+        ends,
+        groups,
+        slack=slack,
+        chrom_len_ids=chrom_len_ids,
+        chrom_lens=chrom_lens,
+        include_first_interval=include_first_interval,
     )
 
 

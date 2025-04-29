@@ -5,7 +5,6 @@ use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
-use rustc_hash::FxHashMap;
 
 use bindings::numpy_bindings::overlaps_numpy::*;
 use bindings::numpy_bindings::nearest_numpy::*;
@@ -19,9 +18,9 @@ use bindings::numpy_bindings::window_numpy::*;
 use bindings::numpy_bindings::tile_numpy::*;
 use bindings::numpy_bindings::max_disjoint_numpy::*;
 use bindings::numpy_bindings::extend_numpy::*;
+use bindings::numpy_bindings::complement_numpy::*;
 
 use crate::boundary::sweep_line_boundary;
-use crate::complement_single::sweep_line_complement;
 use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::{bindings, outside_bounds};
@@ -103,56 +102,6 @@ pub fn spliced_subsequence_per_row_numpy(
         outidx.into_pyarray(py).to_owned().into(),
         outstarts.into_pyarray(py).to_owned().into(),
         outends.into_pyarray(py).to_owned().into(),
-    ))
-}
-
-
-#[pyfunction]
-pub fn complement_numpy(
-    py: Python,
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    slack: i64,
-    chrom_len_ids: PyReadonlyArray1<u32>,
-    chrom_lens: PyReadonlyArray1<i64>,
-    include_first_interval: bool,
-) -> PyResult<(
-    Py<PyArray1<u32>>,
-    Py<PyArray1<i64>>,
-    Py<PyArray1<i64>>,
-    Py<PyArray1<u32>>,
-)> {
-    let chrs_slice = chrs.as_slice()?;
-    let starts_slice = starts.as_slice()?;
-    let ends_slice = ends.as_slice()?;
-
-    let keys = chrom_len_ids.as_slice()?;
-    let vals = chrom_lens.as_slice()?;
-
-    if keys.len() != vals.len() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "keys array and values array must have the same length",
-        ));
-    }
-    let mut lens_map = FxHashMap::default();
-    for (&k, &v) in keys.iter().zip(vals.iter()) {
-        lens_map.insert(k, v);
-    }
-
-    let (outchrs, outstarts, outends, outidxs) = sweep_line_complement(
-        chrs_slice,
-        starts_slice,
-        ends_slice,
-        slack,
-        &lens_map,
-        include_first_interval,
-    );
-    Ok((
-        outchrs.into_pyarray(py).to_owned().into(),
-        outstarts.into_pyarray(py).to_owned().into(),
-        outends.into_pyarray(py).to_owned().into(),
-        outidxs.into_pyarray(py).to_owned().into(),
     ))
 }
 
@@ -359,6 +308,17 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(max_disjoint_numpy_u8_i16, m)?)?;
 
+    m.add_function(wrap_pyfunction!(complement_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(complement_numpy_u8_i16, m)?)?;
+
     m.add_function(wrap_pyfunction!(window_numpy_i64, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy_i32, m)?)?;
     m.add_function(wrap_pyfunction!(window_numpy_i16, m)?)?;
@@ -371,11 +331,14 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(extend_numpy_i32, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(complement_numpy, m)?)?;
     m.add_function(wrap_pyfunction!(boundary_numpy, m)?)?;
+
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy, m)?)?;
+
     m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy, m)?)?;
+
     m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
+
     m.add_function(wrap_pyfunction!(genome_bounds_numpy, m)?)?;
 
     Ok(())
