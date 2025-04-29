@@ -52,12 +52,12 @@ pub fn build_intervals<C: GroupType, T: PositionType>(
     intervals
 }
 
-pub fn build_subsequence_intervals<T: PositionType>(
-    chrs: &[u32],
+pub fn build_subsequence_intervals<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
-) -> Vec<SplicedSubsequenceInterval<T>> {
+) -> Vec<SplicedSubsequenceInterval<G, T>> {
     let mut intervals = Vec::with_capacity(chrs.len());
     for i in 0..chrs.len() {
         intervals.push(SplicedSubsequenceInterval {
@@ -127,12 +127,12 @@ pub fn build_sorted_intervals<C: GroupType, T: PositionType>(
     intervals
 }
 
-pub fn build_sorted_subsequence_intervals<T: PositionType>(
-    chrs: &[u32],
+pub fn build_sorted_subsequence_intervals<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
-) -> Vec<SplicedSubsequenceInterval<T>> {
+) -> Vec<SplicedSubsequenceInterval<G, T>> {
     let mut intervals = build_subsequence_intervals(chrs, starts, ends, strand_flags);
 
     sort_by_key(&mut intervals, |i| i.end);

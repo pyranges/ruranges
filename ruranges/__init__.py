@@ -54,6 +54,8 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "tile_numpy": ("grp", "pos", "pos", "fraction"),
     "complement_numpy": ("grp", "pos", "pos", "index"),
     "boundary_numpy": ("index", "pos", "pos", "count"),
+    "spliced_subsequence_numpy": ("index", "pos", "pos"),
+    "spliced_subsequence_per_row_numpy": ("index", "pos", "pos"),
 }
 
 
@@ -657,6 +659,65 @@ def tile(
         ends=ends,
         negative_strand=negative_strand,
         tile_size=tile_size,
+    )
+
+def spliced_subsequence(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None,          # chromosome / transcript IDs
+    strand_flags: NDArray[np.bool_],
+    start: int,
+    end: int | None = None,
+    force_plus_strand: bool = False,
+) -> tuple[
+    NDArray[GroupIdInt],   # indices
+    NDArray[RangeInt],     # new starts
+    NDArray[RangeInt],     # new ends
+]:
+    """
+    Extract a spliced subsequence from exon blocks defined by *(starts, ends)*.
+
+    The algorithm walks exons in transcription order (5'→3' per strand),
+    accumulating length until the requested `[start, end)` span is covered,
+    and returns the coordinates of the blocks that span that subsequence.
+
+    Parameters
+    ----------
+    starts, ends
+        Exon coordinates (`dtype == RangeInt`).
+    groups
+        Optional upper-level IDs (e.g. transcript or chromosome).  If `None`
+        the whole array is treated as a single transcript.
+    strand_flags
+        Boolean array – `True` for negative strand, `False` for positive.
+    start, end
+        0-based positions *within the transcript* (like Python slices).
+        `end=None` ⇒ go to the transcript end.
+    force_plus_strand
+        If `True`, treat all strands as plus (+) regardless of
+        `strand_flags` (useful for DNA motif extraction).
+
+    Returns
+    -------
+    idx, sub_starts, sub_ends
+        *idx* is a ``uint32`` array of the exon rows that contribute to the
+        subsequence; *sub_starts* / *sub_ends* are their trimmed coordinates.
+
+    Notes
+    -----
+    The heavy lifting happens in Rust; this wrapper merely dispatches to the
+    correct concrete function based on the dtypes you provide.
+    """
+    return _dispatch_unary(
+        "spliced_subsequence_numpy",
+        starts,
+        ends,
+        groups,
+        strand_flags=strand_flags,
+        start=start,
+        end=end,
+        force_plus_strand=force_plus_strand,
     )
 
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:

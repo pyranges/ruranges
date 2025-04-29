@@ -76,9 +76,9 @@ pub struct Nearest<T: PositionType> {
 }
 
 #[derive(Debug, Clone)]
-pub struct SplicedSubsequenceInterval<T: PositionType> {
+pub struct SplicedSubsequenceInterval<G: GroupType, T: PositionType> {
     /// Encoded chromosome (or chrom+strand+gene) ID.
-    pub chr: u32,
+    pub chr: G,
 
     /// The genomic start coordinate.
     pub start: T,

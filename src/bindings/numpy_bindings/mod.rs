@@ -12,3 +12,4 @@ pub mod complement_numpy;
 pub mod boundary_numpy;
 pub mod extend_numpy;
 pub mod max_disjoint_numpy;
+pub mod spliced_subsequence_numpy;

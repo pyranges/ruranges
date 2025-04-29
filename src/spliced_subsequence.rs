@@ -1,5 +1,5 @@
 use crate::{
-    ruranges_structs::{PositionType, SplicedSubsequenceInterval},
+    ruranges_structs::{GroupType, PositionType, SplicedSubsequenceInterval},
     sorts::build_sorted_subsequence_intervals,
 };
 
@@ -15,8 +15,8 @@ use crate::{
 /// - force_plus_strand: if true, treat **all** intervals as if forward strand
 ///
 /// Returns tuple of (out_idxs, out_starts, out_ends).
-pub fn spliced_subseq<T: PositionType>(
-    chrs: &[u32],
+pub fn spliced_subseq<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
@@ -46,7 +46,7 @@ pub fn spliced_subseq<T: PositionType>(
 
     // This closure finalizes one chrom-group: it applies negative indexing, forward/reverse logic,
     // filters out intervals with start >= end, and pushes results into output vectors.
-    let finalize_group = |group: &mut [SplicedSubsequenceInterval<T>],
+    let finalize_group = |group: &mut [SplicedSubsequenceInterval<G, T>],
                           start: T,
                           end: Option<T>,
                           force_plus: bool,
@@ -173,8 +173,8 @@ pub fn spliced_subseq<T: PositionType>(
     (out_idxs, out_starts, out_ends)
 }
 
-pub fn spliced_subseq_per_row<T: PositionType>(
-    chrs: &[u32],
+pub fn spliced_subseq_per_row<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
@@ -255,8 +255,8 @@ pub fn spliced_subseq_per_row<T: PositionType>(
 /// for each row index in [row_start .. row_end]. 
 /// That means we call `finalize_group(...)` once per row in that range,
 /// using `multi_starts[row_i]` / `multi_ends[row_i]`.
-fn finalize_rows_in_group<T: PositionType>(
-    group_buf: &[SplicedSubsequenceInterval<T>],
+fn finalize_rows_in_group<G: GroupType, T: PositionType>(
+    group_buf: &[SplicedSubsequenceInterval<G, T>],
     row_start: usize,
     row_end: usize,
     multi_starts: &[T],
@@ -291,8 +291,8 @@ fn finalize_rows_in_group<T: PositionType>(
     }
 }
 
-fn finalize_group<T: PositionType>(
-    group: &[SplicedSubsequenceInterval<T>],
+fn finalize_group<G: GroupType, T: PositionType>(
+    group: &[SplicedSubsequenceInterval<G, T>],
     subseq_start: T,         // e.g. multi_starts[row_i]
     subseq_end: T,   // e.g. multi_ends[row_i]
     total_length: T,

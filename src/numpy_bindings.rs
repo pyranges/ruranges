@@ -20,8 +20,8 @@ use bindings::numpy_bindings::max_disjoint_numpy::*;
 use bindings::numpy_bindings::extend_numpy::*;
 use bindings::numpy_bindings::complement_numpy::*;
 use bindings::numpy_bindings::boundary_numpy::*;
+use bindings::numpy_bindings::spliced_subsequence_numpy::*;
 
-use crate::spliced_subsequence::{spliced_subseq, spliced_subseq_per_row};
 use crate::split::sweep_line_split;
 use crate::{bindings, outside_bounds};
 
@@ -46,62 +46,6 @@ pub fn split_numpy(
         indices.into_pyarray(py).to_owned().into(),
         starts.into_pyarray(py).to_owned().into(),
         ends.into_pyarray(py).to_owned().into(),
-    ))
-}
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, strand_flags, start, end = None, force_plus_strand = false))]
-pub fn spliced_subsequence_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    strand_flags: PyReadonlyArray1<bool>,
-    start: i64,
-    end: Option<i64>,
-    force_plus_strand: bool,
-    py: Python,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let (outidx, outstarts, outends) = spliced_subseq(
-        chrs.as_slice()?,
-        starts.as_slice()?,
-        ends.as_slice()?,
-        strand_flags.as_slice()?,
-        start,
-        end,
-        force_plus_strand,
-    );
-    Ok((
-        outidx.into_pyarray(py).to_owned().into(),
-        outstarts.into_pyarray(py).to_owned().into(),
-        outends.into_pyarray(py).to_owned().into(),
-    ))
-}
-
-#[pyfunction]
-#[pyo3(signature = (chrs, starts, ends, strand_flags, starts_subseq, ends_subseq, force_plus_strand = false))]
-pub fn spliced_subsequence_per_row_numpy(
-    chrs: PyReadonlyArray1<u32>,
-    starts: PyReadonlyArray1<i64>,
-    ends: PyReadonlyArray1<i64>,
-    strand_flags: PyReadonlyArray1<bool>,
-    starts_subseq: PyReadonlyArray1<i64>,
-    ends_subseq: PyReadonlyArray1<i64>,
-    force_plus_strand: bool,
-    py: Python,
-) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<i64>>, Py<PyArray1<i64>>)> {
-    let (outidx, outstarts, outends) = spliced_subseq_per_row(
-        chrs.as_slice()?,
-        starts.as_slice()?,
-        ends.as_slice()?,
-        strand_flags.as_slice()?,
-        starts_subseq.as_slice()?,
-        ends_subseq.as_slice()?,
-        force_plus_strand,
-    );
-    Ok((
-        outidx.into_pyarray(py).to_owned().into(),
-        outstarts.into_pyarray(py).to_owned().into(),
-        outends.into_pyarray(py).to_owned().into(),
     ))
 }
 
@@ -316,9 +260,27 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(boundary_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(boundary_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i16, m)?)?;
 
     m.add_function(wrap_pyfunction!(split_numpy, m)?)?;
 
