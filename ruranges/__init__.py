@@ -57,6 +57,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "spliced_subsequence_numpy": ("index", "pos", "pos"),
     "spliced_subsequence_per_row_numpy": ("index", "pos", "pos"),
     "split_numpy": ("index", "pos", "pos"),
+    "extend_numpy": ("pos", "pos"),
     "genome_bounds_numpy": ("index", "pos", "pos"),
 }
 
@@ -822,6 +823,32 @@ def split(
         between=between,
     )
 
+def extend(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    negative_strand: NDArray[np.bool_],
+    groups: NDArray[GroupIdInt] | None = None,
+    ext: int | None = None,
+    ext_3: int | None = None,
+    ext_5: int | None = None,
+) -> tuple[NDArray[RangeInt], NDArray[RangeInt]]:
+    """Extend intervals upstream/downstream; see full docstring above."""
+    if groups is None:
+        groups = np.zeros(starts.shape[0], dtype=np.uint32)
+
+
+    return _dispatch_unary(
+        "extend_numpy",
+        starts=starts,
+        ends=ends,
+        groups=groups,
+        negative_strand=negative_strand,
+        ext=ext,
+        ext_3=ext_3,
+        ext_5=ext_5,
+    )
+
 def genome_bounds(
     *,
     groups: NDArray[GroupIdInt],
@@ -1132,9 +1159,6 @@ def _dispatch_unary(
 
     groups_validated = validate_groups(length, groups)
 
-    # ------------------------------------------------------------------
-    # 1.  Remember caller-visible dtypes
-    # ------------------------------------------------------------------
     grp_orig: np.dtype = groups_validated.dtype
     pos_orig: np.dtype = starts.dtype
 
