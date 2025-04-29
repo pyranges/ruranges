@@ -822,6 +822,51 @@ def split(
         between=between,
     )
 
+def genome_bounds(
+    *,
+    groups: NDArray[GroupIdInt],
+    starts: NDArray[RangeInt],
+    ends:   NDArray[RangeInt],
+    chrom_length: NDArray[RangeInt],
+    clip: bool = False,
+    only_right: bool = False,
+) -> tuple[
+    NDArray[np.uintp],   # indices (usize → uintp)
+    NDArray[RangeInt],   # new starts
+    NDArray[RangeInt],   # new ends
+]:
+    """
+    Clip or flag intervals that extend beyond chromosome bounds.
+
+    Parameters
+    ----------
+    groups, starts, ends
+        Interval set. *groups* must reference the chromosomes in *chrom_ids*.
+    chrom_ids, chrom_length
+        Parallel arrays mapping chromosome IDs to their total length.
+    clip
+        If *True*, coordinates are clipped to the bounds; if *False* only
+        intervals lying wholly outside are returned.
+    only_right
+        When *True*, treat `ends > chrom_length` as out-of-bounds but ignore
+        negative starts.
+
+    Returns
+    -------
+    idx, new_starts, new_ends
+        *idx* is the index of the input row affected.  If *clip=False* the
+        two coordinate arrays echo the offending interval; if *clip=True*
+        they hold the clipped coordinates.
+    """
+    return _dispatch_unary(
+        "genome_bounds_numpy",    # base name of the Rust wrapper
+        starts,
+        ends,
+        groups,
+        chrom_lengths=chrom_length,
+        clip=clip,
+        only_right=only_right,
+    )
 
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
     """Return the narrowest integer dtype that can hold *arr*,

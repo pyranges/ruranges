@@ -1,65 +1,61 @@
 use std::collections::HashMap;
 
 use pyo3::{exceptions::PyValueError, prelude::*};
-use numpy::{PyReadonlyArray1, PyArray1};
+use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
+use pyo3::{pyfunction, Py, PyResult, Python};
 
 use crate::outside_bounds::outside_bounds;
 
 macro_rules! define_genome_bounds_numpy {
     ($fname:ident, $grp_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
-        #[pyo3(signature = (
+        #[pyo3(signature=(
             groups,
             starts,
             ends,
-            chrom_ids,
-            chrom_length,
+            chrom_lengths,     //  <-- single vector, same length as rows
             clip = false,
             only_right = false
         ))]
         #[allow(non_snake_case)]
         pub fn $fname(
-            groups:        PyReadonlyArray1<$grp_ty>,
-            starts:        PyReadonlyArray1<$pos_ty>,
-            ends:          PyReadonlyArray1<$pos_ty>,
-            chrom_ids:     PyReadonlyArray1<$grp_ty>,
-            chrom_length:  PyReadonlyArray1<$pos_ty>,
-            clip:          bool,
-            only_right:    bool,
-            py: Python<'_>,
+            groups:         PyReadonlyArray1<$grp_ty>,
+            starts:         PyReadonlyArray1<$pos_ty>,
+            ends:           PyReadonlyArray1<$pos_ty>,
+            chrom_lengths:  PyReadonlyArray1<$pos_ty>,
+            clip:           bool,
+            only_right:     bool,
+            py:             Python<'_>,
         ) -> PyResult<(
-            Py<PyArray1<usize>>,    // indices
-            Py<PyArray1<$pos_ty>>,  // new starts
-            Py<PyArray1<$pos_ty>>,  // new ends
+            Py<PyArray1<u32>>,    // kept identical return signature
+            Py<PyArray1<$pos_ty>>,
+            Py<PyArray1<$pos_ty>>,
         )> {
-            use std::collections::HashMap;
             use pyo3::exceptions::PyValueError;
 
-            let ids  = chrom_ids.as_slice()?;
-            let lens = chrom_length.as_slice()?;
-            if ids.len() != lens.len() {
+            // Fast length consistency check while we still hold the gil.
+            let n = starts.len()?;
+            if ends.len()? != n || groups.len()? != n || chrom_lengths.len()? != n {
                 return Err(PyValueError::new_err(
-                    "chrom_ids and chrom_length must have the same length",
+                    "`groups`, `starts`, `ends`, and `chrom_lengths` must all have the same length",
                 ));
             }
-
-            let chrom_map: HashMap<$grp_ty, $pos_ty> =
-                ids.iter().copied().zip(lens.iter().copied()).collect();
 
             let (idx, new_starts, new_ends) = outside_bounds(
                 groups.as_slice()?,
                 starts.as_slice()?,
                 ends.as_slice()?,
-                &chrom_map,
+                chrom_lengths.as_slice()?,
                 clip,
                 only_right,
             )
-            .map_err(|e| PyValueError::new_err(e))?;
+            .map_err(PyValueError::new_err)?;
 
+            // Convert the three Vecs back to NumPy arrays.
             Ok((
-                PyArray1::from_vec(py, idx)        .to_owned().into(),
-                PyArray1::from_vec(py, new_starts) .to_owned().into(),
-                PyArray1::from_vec(py, new_ends)   .to_owned().into(),
+                idx.into_pyarray(py).to_owned().into(),
+                new_starts.into_pyarray(py).to_owned().into(),
+                new_ends.into_pyarray(py).to_owned().into(),
             ))
         }
     };
