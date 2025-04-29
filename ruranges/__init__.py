@@ -720,6 +720,58 @@ def spliced_subsequence(
         force_plus_strand=force_plus_strand,
     )
 
+
+def spliced_subsequence_per_row(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None,          # chromosome / transcript IDs
+    strand_flags: NDArray[np.bool_],
+    starts_subseq: NDArray[RangeInt],
+    ends_subseq: NDArray[RangeInt],
+    force_plus_strand: bool = False,
+) -> tuple[
+    NDArray[GroupIdInt],   # indices
+    NDArray[RangeInt],     # new starts
+    NDArray[RangeInt],     # new ends
+]:
+    """
+    Trim each **row** (exon) to the `[start_i, end_i)` spliced coordinates
+    provided in *starts_subseq* / *ends_subseq*.
+
+    Unlike :pyfunc:`spliced_subsequence`, the slice positions vary per row.
+
+    Parameters
+    ----------
+    starts, ends
+        Exon coordinates (`dtype == RangeInt`).
+    groups
+        Optional higher-level grouping (transcript or chromosome).
+    strand_flags
+        Boolean array – `True` for negative strand, `False` for positive.
+    starts_subseq, ends_subseq
+        Per-row subsequence slice bounds in transcript space.
+    force_plus_strand
+        If `True`, ignore `strand_flags` and treat all intervals as plus
+        strand.
+
+    Returns
+    -------
+    idx, sub_starts, sub_ends
+        *idx* (`uint32`) gives the input row that contributed each trimmed
+        block; *sub_starts* / *sub_ends* are their new coordinates.
+    """
+    return _dispatch_unary(
+        "spliced_subsequence_per_row_numpy",
+        groups,
+        starts,
+        ends,
+        strand_flags=strand_flags,
+        starts_subseq=starts_subseq,
+        ends_subseq=ends_subseq,
+        force_plus_strand=force_plus_strand,
+    )
+
 def minimal_integer_dtype(arr: NDArray[np.integer]) -> np.dtype:
     """Return the narrowest integer dtype that can hold *arr*,
     preserving the signed/unsigned kind of the original dtype.
