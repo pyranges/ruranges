@@ -23,6 +23,7 @@ use bindings::numpy_bindings::boundary_numpy::*;
 use bindings::numpy_bindings::spliced_subsequence_numpy::*;
 use bindings::numpy_bindings::split_numpy::*;
 use bindings::numpy_bindings::genome_bounds_numpy::*;
+use bindings::numpy_bindings::group_cumsum_numpy::*;
 
 use crate::bindings;
 
@@ -235,6 +236,17 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i64, m)?)?;
     m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(genome_bounds_numpy_u8_i16, m)?)?;
+
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(group_cumsum_numpy_u8_i16, m)?)?;
 
     Ok(())
 }
