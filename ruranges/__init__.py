@@ -10,6 +10,8 @@ GroupIdInt = TypeVar("GroupIdInt", np.int8, np.int16, np.int32)
 # Define another type variable for the range arrays (starts/ends), which can be any integer.
 RangeInt = TypeVar("RangeInt", bound=np.integer)
 
+from .ruranges import map_to_global_numpy
+
 
 # dtype-suffix map shared by every operation
 # (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
@@ -898,6 +900,7 @@ def group_cumsum(
         groups=groups,
         negative_strand=negative_strand,
     )
+
 
 def genome_bounds(
     *,

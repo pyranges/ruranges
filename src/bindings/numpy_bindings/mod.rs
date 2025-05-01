@@ -16,3 +16,4 @@ pub mod spliced_subsequence_numpy;
 pub mod split_numpy;
 pub mod genome_bounds_numpy;
 pub mod group_cumsum_numpy;
+pub mod map_to_global_numpy;

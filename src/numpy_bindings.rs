@@ -26,6 +26,7 @@ use bindings::numpy_bindings::genome_bounds_numpy::*;
 use bindings::numpy_bindings::group_cumsum_numpy::*;
 
 use crate::bindings;
+use crate::bindings::numpy_bindings::map_to_global_numpy::map_to_global_numpy;
 
 
 #[derive(Debug, PartialEq)]
@@ -52,6 +53,7 @@ impl FromStr for Direction {
 #[pymodule]
 #[pyo3(name = "ruranges")]
 fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(map_to_global_numpy, m)?)?;
 
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u32_i64, m)?)?;
