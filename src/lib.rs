@@ -15,6 +15,7 @@ pub mod split;
 pub mod subtract;
 pub mod tile;
 pub mod group_cumsum;
+pub mod map_to_global;
 
 pub mod helpers;
 

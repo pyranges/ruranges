@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use pyo3::{exceptions::PyValueError, prelude::*};
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};

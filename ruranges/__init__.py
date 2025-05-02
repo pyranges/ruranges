@@ -10,8 +10,6 @@ GroupIdInt = TypeVar("GroupIdInt", np.int8, np.int16, np.int32)
 # Define another type variable for the range arrays (starts/ends), which can be any integer.
 RangeInt = TypeVar("RangeInt", bound=np.integer)
 
-from .ruranges import map_to_global_numpy
-
 
 # dtype-suffix map shared by every operation
 # (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
@@ -56,12 +54,13 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "tile_numpy": ("grp", "pos", "pos", "fraction"),
     "complement_numpy": ("grp", "pos", "pos", "index"),
     "boundary_numpy": ("index", "pos", "pos", "count"),
-    "spliced_subsequence_numpy": ("index", "pos", "pos"),
-    "spliced_subsequence_per_row_numpy": ("index", "pos", "pos"),
+    "spliced_subsequence_numpy": ("index", "pos", "pos", "strand"),
+    "spliced_subsequence_per_row_numpy": ("index", "pos", "pos", "strand"),
     "split_numpy": ("index", "pos", "pos"),
     "extend_numpy": ("pos", "pos"),
     "genome_bounds_numpy": ("index", "pos", "pos"),
     "group_cumsum_numpy": ("index", "pos", "pos"),
+    "map_to_global_numpy": ("index", "pos", "pos", "strand"),
 }
 
 
@@ -138,6 +137,46 @@ def overlaps(
         slack,
         overlap_type=multiple,
         contained=contained,
+    )
+
+
+def map_to_global(
+    *,
+    # ─── query (local) table ─────────────────────────────────────────
+    starts:    NDArray[RangeInt],
+    ends:      NDArray[RangeInt],
+    groups:    NDArray[GroupIdInt],
+    strand:    NDArray[np.bool_],
+    # ─── exon (annotation) table ─────────────────────────────────────
+    starts2:   NDArray[RangeInt],
+    ends2:     NDArray[RangeInt],
+    groups2:   NDArray[GroupIdInt],
+    chr_code2: NDArray[GroupIdInt],
+    genome_start2: NDArray[RangeInt],
+    genome_end2:   NDArray[RangeInt],
+    strand2:   NDArray[np.bool_],
+) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+    """
+    Vectorised transcript-to-genome projection.
+
+    All arrays must be 1-D and already sorted per transcript by
+    (local_start).  The *strand* arrays encode '+' as True and '−' as False.
+
+    Returns
+    -------
+    keep_idx : uint32
+        Row numbers into the *query* table (duplicated if interval splits).
+    g_start / g_end : same dtype as *starts*
+        Genomic coordinates of the mapped pieces.
+    g_strand_bool : bool
+        True ⇒ '+', False ⇒ '−'.
+    """
+
+    return _dispatch_map_global_binary(
+        "map_to_global_numpy",
+        groups,  starts,  ends,  strand,
+        groups2, starts2, ends2, strand2,
+        chr_code2, genome_start2, genome_end2,
     )
 
 
@@ -715,7 +754,7 @@ def spliced_subsequence(
     The heavy lifting happens in Rust; this wrapper merely dispatches to the
     correct concrete function based on the dtypes you provide.
     """
-    return _dispatch_unary(
+    x, s, e, _strand = _dispatch_unary(
         "spliced_subsequence_numpy",
         starts,
         ends,
@@ -725,6 +764,7 @@ def spliced_subsequence(
         end=end,
         force_plus_strand=force_plus_strand,
     )
+    return x, s, e
 
 
 def spliced_subsequence_per_row(
@@ -1363,3 +1403,139 @@ def cast_kernel_outputs(
 
     # zip stops at the shorter iterable; arity already checked above :contentReference[oaicite:3]{index=3}
     return tuple(_restore(role, arr) for role, arr in zip(roles, raw_out))
+
+
+def _dispatch_map_global_binary(
+    prefix: str,
+    ex_tx, ex_local_start, ex_local_end, ex_fwd,                # left (exons)
+    q_tx, q_start, q_end, q_fwd,                                # right (queries)
+    ex_chr_code, ex_genome_start, ex_genome_end,                # extra
+    **extra_kw
+):
+    """
+    Special-purpose dispatch function for map_to_global, 
+    so we don't rely on _dispatch_binary's argument ordering.
+
+    Parameters
+    ----------
+    prefix : str
+        Rust kernel prefix, e.g. "map_to_global_numpy".
+    ex_tx, ex_local_start, ex_local_end : 1D arrays
+        The group, start, end arrays for exon (left) side.
+    ex_fwd : 1D bool array
+        Exon side's strand flags.
+    q_tx, q_start, q_end : 1D arrays
+        The group, start, end arrays for query (right) side.
+    q_fwd : 1D bool array
+        Query side's strand flags.
+    ex_chr_code, ex_genome_start, ex_genome_end : 1D arrays
+        Additional arrays needed by the Rust function.
+    **extra_kw
+        Extra arguments if needed (usually none).
+
+    Returns
+    -------
+    keep_idx, out_start, out_end, out_strand_bool : NDArray
+        The 4 arrays returned by the "map_to_global_numpy" Rust kernel.
+    """
+    # ----------------------------------------------------------------------
+    # 0. Helpers: same ones you used in _dispatch_binary
+    # ----------------------------------------------------------------------
+    def check_array_lengths(*arrays):
+        # example length check used in your code
+        lengths = [len(a) for a in arrays if a is not None]
+        if not lengths:
+            return 0
+        if len(set(lengths)) > 1:
+            raise ValueError(f"Array length mismatch: {lengths}")
+        return lengths[0]
+
+    def validate_groups(length, arr):
+        # If groups is None, produce a zero array, etc. 
+        if arr is None:
+            return np.zeros(length, dtype=np.uint32)
+        if len(arr) != length:
+            raise ValueError("Group array length mismatch")
+        return arr
+
+    def _common_integer_dtype(*arrays):
+        """Pick the smallest integer dtype that can hold all array min/max."""
+        # same logic you had in _dispatch_binary
+        # or do the short version for brevity
+        return np.result_type(*[a.dtype for a in arrays if a is not None])
+
+    # ----------------------------------------------------------------------
+    # 1. Basic array-length checks
+    # ----------------------------------------------------------------------
+    left_len = check_array_lengths(ex_tx, ex_local_start, ex_local_end, ex_fwd,
+                                   ex_chr_code, ex_genome_start, ex_genome_end)
+    right_len = check_array_lengths(q_tx, q_start, q_end, q_fwd)
+
+    # validate group arrays, etc.
+    ex_tx_valid = validate_groups(left_len, ex_tx)
+    q_tx_valid  = validate_groups(right_len, q_tx)
+
+    # ----------------------------------------------------------------------
+    # 2. Identify original dtypes (for final cast)
+    # ----------------------------------------------------------------------
+    grp_orig = ex_tx_valid.dtype  # a guess if ex_tx != None
+    pos_orig = ex_local_start.dtype  # assume ex_local_start’s dtype is your reference
+
+    # ----------------------------------------------------------------------
+    # 3. Pick tightest dtype for groups + positions
+    # ----------------------------------------------------------------------
+    grp_tmp = _common_integer_dtype(ex_tx_valid, q_tx_valid)
+    pos_tmp = _common_integer_dtype(
+        ex_local_start, ex_local_end, q_start, q_end, 
+        ex_chr_code, ex_genome_start, ex_genome_end
+    )
+
+    # optional slack check
+    slack = extra_kw.get("slack", 0)
+    # skip if you don't need it
+    # (like check_min_max_with_slack(...))
+
+    # ----------------------------------------------------------------------
+    # 4. Resolve which Rust function to call, same as _dispatch_binary
+    # ----------------------------------------------------------------------
+    # e.g. rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, grp_tmp, pos_tmp)
+    rust_fn, grp_t, pos_t = _resolve_rust_fn(prefix, grp_tmp, pos_tmp)
+
+    # We'll define what your kernel returns
+    roles = RETURN_SIGNATURES[prefix]  # e.g. ("grp", "pos", "pos", "strand")
+
+    # ----------------------------------------------------------------------
+    # 5. Convert arrays to the temporary dtype
+    # ----------------------------------------------------------------------
+    ex_tx_t         = ex_tx_valid.astype(grp_t, copy=False)
+    ex_local_start_t= ex_local_start.astype(pos_t, copy=False)
+    ex_local_end_t  = ex_local_end.astype(pos_t, copy=False)
+    ex_fwd_t        = ex_fwd  # bool doesn't need casting for Rust
+
+    q_tx_t          = q_tx_valid.astype(grp_t, copy=False)
+    q_start_t       = q_start.astype(pos_t, copy=False)
+    q_end_t         = q_end.astype(pos_t, copy=False)
+    q_fwd_t         = q_fwd  # bool
+
+    ex_chr_code_t   = ex_chr_code.astype(grp_t, copy=False)
+    ex_genome_start_t = ex_genome_start.astype(pos_t, copy=False)
+    ex_genome_end_t   = ex_genome_end.astype(pos_t, copy=False)
+
+    # ----------------------------------------------------------------------
+    # 6. Call the Rust function
+    # ----------------------------------------------------------------------
+    raw_out = rust_fn(
+        # left triple
+        ex_tx_t, ex_local_start_t, ex_local_end_t,
+        # right triple
+        q_tx_t, q_start_t, q_end_t,
+        # extras
+        ex_chr_code_t, ex_genome_start_t, ex_genome_end_t,
+        ex_fwd_t, q_fwd_t,
+    )
+
+    # ----------------------------------------------------------------------
+    # 7. Cast the outputs back
+    # same logic your cast_kernel_outputs uses
+    # roles might be ("grp", "pos", "pos", "strand")
+    return cast_kernel_outputs(prefix, raw_out, roles, grp_t, pos_t, grp_orig, pos_orig)
