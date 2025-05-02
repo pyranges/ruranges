@@ -754,7 +754,7 @@ def spliced_subsequence(
     The heavy lifting happens in Rust; this wrapper merely dispatches to the
     correct concrete function based on the dtypes you provide.
     """
-    x, s, e, _strand = _dispatch_unary(
+    return _dispatch_unary(
         "spliced_subsequence_numpy",
         starts,
         ends,
@@ -763,8 +763,7 @@ def spliced_subsequence(
         start=start,
         end=end,
         force_plus_strand=force_plus_strand,
-    )
-    return x, s, e
+    )[0:3]
 
 
 def spliced_subsequence_per_row(
@@ -816,7 +815,7 @@ def spliced_subsequence_per_row(
         starts_subseq=starts_subseq,
         ends_subseq=ends_subseq,
         force_plus_strand=force_plus_strand,
-    )
+    )[0:3]
 
 
 def split(
