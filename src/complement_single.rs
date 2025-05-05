@@ -1,15 +1,15 @@
 use rustc_hash::FxHashMap;
 
-use crate::{ruranges_structs::PositionType, sorts};
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
 
-pub fn sweep_line_complement<T: PositionType>(
-    chrs: &[u32],
+pub fn sweep_line_complement<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     slack: T,
-    chrom_lens: &FxHashMap<u32, T>,
+    chrom_lens: &FxHashMap<G, T>,
     include_first_interval: bool, // <-- new parameter
-) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<u32>) {
+) -> (Vec<G>, Vec<T>, Vec<T>, Vec<u32>) {
     let mut out_chrs = Vec::with_capacity(chrs.len());
     let mut out_starts = Vec::with_capacity(chrs.len());
     let mut out_ends = Vec::with_capacity(chrs.len());

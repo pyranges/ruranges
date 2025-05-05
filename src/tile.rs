@@ -1,3 +1,5 @@
+use crate::ruranges_structs::{GroupType, PositionType};
+
 /// Returns tiled intervals along with the original row index and the tile overlap as a fraction of tile size.
 ///
 /// For each interval defined by `starts[i]` and `ends[i]`, the function splits the genome into
@@ -10,12 +12,12 @@
 /// - For an interval 100–250 with tile size 100:
 ///     - The tile [100,200) gets an overlap fraction of 1.0,
 ///     - The tile [200,300) gets an overlap fraction of 0.5.
-pub fn tile(
-    starts: &[i64],
-    ends: &[i64],
+pub fn tile<T>(
+    starts: &[T],
+    ends: &[T],
     negative_strand: &[bool],
-    tile_size: i64,
-) -> (Vec<i64>, Vec<i64>, Vec<usize>, Vec<f64>) {
+    tile_size: T,
+) -> (Vec<T>, Vec<T>, Vec<usize>, Vec<f64>) where T: PositionType {
     assert_eq!(starts.len(), ends.len());
     assert_eq!(starts.len(), negative_strand.len());
 
@@ -23,6 +25,7 @@ pub fn tile(
     let mut out_ends = Vec::new();
     let mut out_indices = Vec::new();
     let mut out_overlaps = Vec::new();
+    let denom = tile_size.to_f64().unwrap();
 
     for (i, ((&s, &e), &is_neg)) in starts
         .iter()
@@ -39,12 +42,12 @@ pub fn tile(
             // === Forward direction (same as original) === //
 
             // Determine the first tile boundary that is <= s.
-            let mut tile_start = if s >= 0 {
+            let mut tile_start = if s >= T::zero() {
                 (s / tile_size) * tile_size
             } else {
                 let mut multiple = s / tile_size;
-                if s % tile_size != 0 {
-                    multiple -= 1;
+                if s % tile_size != T::zero() {
+                    multiple = multiple - T::one();
                 }
                 multiple * tile_size
             };
@@ -54,14 +57,15 @@ pub fn tile(
                 let tile_end = tile_start + tile_size;
                 if tile_end > s && tile_start < e {
                     // Calculate overlap fraction
-                    let overlap_fraction =
-                        (tile_end.min(e) - tile_start.max(s)) as f64 / tile_size as f64;
+                    let num: f64 = (tile_end.min(e) - tile_start.max(s)).to_f64().unwrap();
+                    let denom: f64 = tile_size.to_f64().unwrap();
+                    let overlap_fraction = num / denom;
                     out_starts.push(tile_start);
                     out_ends.push(tile_end);
                     out_indices.push(i);
                     out_overlaps.push(overlap_fraction);
                 }
-                tile_start += tile_size;
+                tile_start = tile_start + tile_size;
             }
         } else {
             // === Reverse direction === //
@@ -75,15 +79,15 @@ pub fn tile(
             //   the first boundary >= 787 is 800
             //
             // For negative e, we do a similar approach but be mindful of rounding.
-            let mut tile_end = if e > 0 {
+            let mut tile_end = if e > T::zero() {
                 // Round up to nearest multiple
-                let div = (e - 1) / tile_size; // subtract 1 so that exact multiple doesn't push us one step further
-                (div + 1) * tile_size
+                let div = (e - T::one()) / tile_size; // subtract 1 so that exact multiple doesn't push us one step further
+                (div + T::one()) * tile_size
             } else {
                 // e is negative or 0
                 let mut multiple = e / tile_size;
-                if e % tile_size != 0 {
-                    multiple -= 1; // go one step "earlier" in negative direction
+                if e % tile_size != T::zero() {
+                    multiple = multiple - T::zero(); // go one step "earlier" in negative direction
                 }
                 multiple * tile_size
             };
@@ -93,15 +97,15 @@ pub fn tile(
                 let tile_start = tile_end - tile_size;
                 // Still check for overlap with [s, e).
                 if tile_start < e && tile_end > s {
-                    let overlap_fraction =
-                        (tile_end.min(e) - tile_start.max(s)) as f64 / tile_size as f64;
+                    let num= (tile_end.min(e) - tile_start.max(s)).to_f64().unwrap();
+                    let overlap_fraction = num / denom;
                     // We keep intervals with the smaller coordinate as start:
                     out_starts.push(tile_start);
                     out_ends.push(tile_end);
                     out_indices.push(i);
                     out_overlaps.push(overlap_fraction);
                 }
-                tile_end -= tile_size;
+                tile_end = tile_end - tile_size;
             }
         }
     }
@@ -109,12 +113,13 @@ pub fn tile(
     (out_starts, out_ends, out_indices, out_overlaps)
 }
 
-pub fn window(
-    starts: &[i64],
-    ends: &[i64],
+
+pub fn window<T>(
+    starts: &[T],
+    ends: &[T],
     negative_strand: &[bool],
-    window_size: i64,
-) -> (Vec<i64>, Vec<i64>, Vec<usize>) {
+    window_size: T,
+) -> (Vec<T>, Vec<T>, Vec<usize>) where T: PositionType {
     assert_eq!(starts.len(), ends.len());
     assert_eq!(starts.len(), negative_strand.len());
 
@@ -133,25 +138,22 @@ pub fn window(
         }
 
         if !is_neg {
-            // === Forward direction (same as original) === //
             let mut cur_start = s;
             while cur_start < e {
                 let cur_end = (cur_start + window_size).min(e);
                 out_starts.push(cur_start);
                 out_ends.push(cur_end);
                 out_indices.push(i);
-                cur_start += window_size;
+                cur_start = cur_start + window_size;
             }
         } else {
-            // === Reverse direction === //
-            // For negative strand, we go from `e` down to `s`, stepping by `window_size`.
             let mut cur_end = e;
             while cur_end > s {
                 let cur_start = (cur_end - window_size).max(s);
                 out_starts.push(cur_start);
                 out_ends.push(cur_end);
                 out_indices.push(i);
-                cur_end -= window_size;
+                cur_end = cur_end - window_size;
             }
         }
     }

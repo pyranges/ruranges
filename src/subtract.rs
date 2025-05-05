@@ -2,13 +2,13 @@ use num_traits::{PrimInt, Signed, Zero};
 use rustc_hash::FxHashMap;
 use std::hash::Hash;
 
-use crate::{ruranges_structs::PositionType, sorts};
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
 
-pub fn sweep_line_subtract<T: PositionType>(
-    chrs1: &[u32],
+pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
+    chrs1: &[G],
     starts1: &[T],
     ends1: &[T],
-    chrs2: &[u32],
+    chrs2: &[G],
     starts2: &[T],
     ends2: &[T],
 ) -> (Vec<u32>, Vec<T>, Vec<T>) {

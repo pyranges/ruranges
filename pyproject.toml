@@ -13,10 +13,10 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-version = "0.0.3"
+version = "0.0.4"
 
 [tool.maturin]
-module-name = "_ruranges"
+module-name = "ruranges"
 features = ["pyo3/extension-module"]
 
 authors = [

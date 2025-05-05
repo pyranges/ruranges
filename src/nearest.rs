@@ -203,25 +203,25 @@ impl FromStr for Direction {
     }
 }
 
-pub fn nearest(
-    chrs: &[u32],
-    starts: &[i64],
-    ends: &[i64],
-    chrs2: &[u32],
-    starts2: &[i64],
-    ends2: &[i64],
-    slack: i64,
-    k: usize,
+pub fn nearest<C: GroupType, T: PositionType>(
+    chrs:     &[C],
+    starts:   &[T],
+    ends:     &[T],
+    chrs2:    &[C],
+    starts2:  &[T],
+    ends2:    &[T],
+    slack:    T,
+    k:        usize,
     include_overlaps: bool,
     direction: &str,
-) -> (Vec<u32>, Vec<u32>, Vec<i64>) {
+) -> (Vec<u32>, Vec<u32>, Vec<T>) {
     let dir = Direction::from_str(direction).unwrap();
 
     let sorted_starts = build_sorted_events_single_collection_separate_outputs(chrs, starts, slack);
     let sorted_ends = build_sorted_events_single_collection_separate_outputs(chrs, ends, slack);
 
-    let sorted_starts2 = build_sorted_events_single_collection_separate_outputs(chrs2, starts2, 0);
-    let sorted_ends2 = build_sorted_events_single_collection_separate_outputs(chrs2, ends2, 0);
+    let sorted_starts2 = build_sorted_events_single_collection_separate_outputs(chrs2, starts2, T::zero());
+    let sorted_ends2 = build_sorted_events_single_collection_separate_outputs(chrs2, ends2, T::zero());
 
     let overlaps = if include_overlaps {
         sweep_line_overlaps_overlap_pair(

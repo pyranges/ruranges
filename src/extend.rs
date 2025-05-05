@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
-fn check_ext_options(
-    ext: Option<i64>,
-    ext_3: Option<i64>,
-    ext_5: Option<i64>,
+use crate::ruranges_structs::{GroupType, PositionType};
+
+fn check_ext_options<T: PositionType>(
+    ext: Option<T>,
+    ext_3: Option<T>,
+    ext_5: Option<T>,
 ) -> Result<(), &'static str> {
     // The condition below is true when either both ext and (ext_3 or ext_5) are provided,
     // or when neither is provided.
@@ -20,14 +22,14 @@ fn check_ext_options(
 /// `negative_strand[i] == true` indicates a reverse (negative) strand for the `i`th record.
 ///
 /// Returns new `(starts, ends)` after extension. Panics if any interval ends up invalid.
-pub fn extend(
-    starts: &[i64],
-    ends: &[i64],
+pub fn extend<T: PositionType>(
+    starts: &[T],
+    ends: &[T],
     negative_strand: &[bool],
-    ext: Option<i64>,
-    ext_3: Option<i64>,
-    ext_5: Option<i64>,
-) -> (Vec<i64>, Vec<i64>) {
+    ext: Option<T>,
+    ext_3: Option<T>,
+    ext_5: Option<T>,
+) -> (Vec<T>, Vec<T>) {
     assert_eq!(starts.len(), ends.len());
     assert_eq!(starts.len(), negative_strand.len());
     assert!(check_ext_options(ext, ext_3, ext_5).is_ok());
@@ -41,8 +43,8 @@ pub fn extend(
         Some(e) => {
             for i in 0..n {
                 let mut s = starts[i] - e;
-                if s < 0 {
-                    s = 0; // clamp to 0
+                if s < T::zero() {
+                    s = T::zero(); // clamp to 0
                 }
                 let e_ = ends[i] + e;
 
@@ -59,21 +61,21 @@ pub fn extend(
                     // Reverse (negative) strand
                     if let Some(ext_5_val) = ext_5 {
                         // 5' extension on reverse strand => add to end
-                        e_ += ext_5_val;
+                        e_ = e_ + ext_5_val;
                     }
                     if let Some(ext_3_val) = ext_3 {
                         // 3' extension on reverse strand => subtract from start
-                        s -= ext_3_val;
+                        s = s - ext_3_val;
                     }
                 } else {
                     // Forward strand
                     if let Some(ext_5_val) = ext_5 {
                         // 5' extension on forward strand => subtract from start
-                        s -= ext_5_val;
+                        s = s - ext_5_val;
                     }
                     if let Some(ext_3_val) = ext_3 {
                         // 3' extension on forward strand => add to end
-                        e_ += ext_3_val;
+                        e_ = e_ + ext_3_val;
                     }
                 }
                 new_starts.push(s);
@@ -89,15 +91,15 @@ pub fn extend(
 /// and the row with the maximal end for that group.
 ///
 /// Returns `(group_ids, new_starts, new_ends)`.
-pub fn extend_grp(
-    group_ids: &[u32],
-    starts: &[i64],
-    ends: &[i64],
+pub fn extend_grp<G: GroupType, T: PositionType>(
+    group_ids: &[G],
+    starts: &[T],
+    ends: &[T],
     negative_strand: &[bool],
-    ext: Option<i64>,
-    ext_3: Option<i64>,
-    ext_5: Option<i64>,
-) -> (Vec<i64>, Vec<i64>) {
+    ext: Option<T>,
+    ext_3: Option<T>,
+    ext_5: Option<T>,
+) -> (Vec<T>, Vec<T>) {
     assert_eq!(group_ids.len(), starts.len());
     assert_eq!(starts.len(), ends.len());
     assert_eq!(ends.len(), negative_strand.len());
@@ -111,7 +113,7 @@ pub fn extend_grp(
 
     // 1. Identify min-start-index and max-end-index for each group.
     // group_info: group_id -> (min_start_idx, min_start_val, max_end_idx, max_end_val)
-    let mut group_info: HashMap<u32, (usize, i64, usize, i64)> = HashMap::new();
+    let mut group_info: HashMap<G, (usize, T, usize, T)> = HashMap::new();
 
     for i in 0..n {
         let g = group_ids[i];
@@ -142,7 +144,7 @@ pub fn extend_grp(
             for (_group_id, (min_i, _min_s, max_i, _max_e)) in group_info.iter() {
                 // subtract from the min-start index, clamp to zero
                 let s = new_starts[*min_i] - e;
-                new_starts[*min_i] = s.max(0);
+                new_starts[*min_i] = s.max(T::zero());
 
                 // add to the max-end index
                 new_ends[*max_i] = new_ends[*max_i] + e;
@@ -160,21 +162,21 @@ pub fn extend_grp(
                     // Reverse strand
                     if let Some(e5) = ext_5 {
                         // 5' on reverse => add to end, so do it on the max-end index
-                        new_ends[*max_i] += e5;
+                        new_ends[*max_i] = new_ends[*max_i] + e5;
                     }
                     if let Some(e3) = ext_3 {
                         // 3' on reverse => subtract from start, so do it on the min-start index
-                        new_starts[*min_i] -= e3;
+                        new_starts[*min_i] = new_starts[*min_i] - e3;
                     }
                 } else {
                     // Forward strand
                     if let Some(e5) = ext_5 {
                         // 5' on forward => subtract from start, so do it on min-start index
-                        new_starts[*min_i] -= e5;
+                        new_starts[*min_i] = new_starts[*min_i] - e5;
                     }
                     if let Some(e3) = ext_3 {
                         // 3' on forward => add to end, so do it on max-end index
-                        new_ends[*max_i] += e3;
+                        new_ends[*max_i] = new_ends[*max_i] + e3;
                     }
                 }
             }

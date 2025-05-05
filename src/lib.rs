@@ -14,6 +14,10 @@ pub mod spliced_subsequence;
 pub mod split;
 pub mod subtract;
 pub mod tile;
+pub mod group_cumsum;
+pub mod map_to_global;
+
+pub mod helpers;
 
 pub mod bindings;
 pub mod numpy_bindings;

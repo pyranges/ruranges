@@ -1,13 +1,11 @@
-use std::time::Instant;
+use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
 
-use crate::{ruranges_structs::PositionType, sorts};
-
-pub fn sweep_line_boundary<T: PositionType>(
-    chrs: &[u32],
+pub fn sweep_line_boundary<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
 ) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<u32>) {
-    let mut out_indices = Vec::with_capacity(chrs.len());
+    let mut out_indices: Vec<u32> = Vec::with_capacity(chrs.len());
     let mut out_starts = Vec::with_capacity(chrs.len());
     let mut out_ends = Vec::with_capacity(chrs.len());
     let mut counts = Vec::with_capacity(chrs.len());

@@ -1,9 +1,9 @@
-use num_traits::{PrimInt, Signed, Zero}; // You'll need the num-traits crate
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::hash::Hash;
-use std::time::Instant;
+use std::str::FromStr;
 
-use crate::ruranges_structs::{GroupType, MaxEvent, MinEvent, OverlapPair, PositionType};
+use rustc_hash::{FxHashMap, FxHashSet};
+
+use crate::helpers::keep_first_by_idx;
+use crate::ruranges_structs::{GroupType, MaxEvent, MinEvent, OverlapPair, OverlapType, PositionType};
 use crate::sorts::{
     self, build_sorted_events_single_collection_separate_outputs,
     build_sorted_maxevents_with_starts_ends,
@@ -29,16 +29,7 @@ impl WhichList {
     }
 }
 
-/// Returns all overlapping pairs (idx1, idx2) between intervals in set1 and set2.
-/// This uses a line-sweep / active-set approach.
-///
-/// Algorithm steps:
-///   1. Build a list of events (start & end) for each interval in both sets.
-///   2. Sort events by coordinate. Where coordinates tie, put start before end.
-///   3. Maintain active sets (for set1 and set2). For a start event in set1,
-///      record overlap with all active in set2, then insert into active1. Etc.
-///   4. Return the list of all cross-set overlaps.
-pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
+pub fn overlaps<C: GroupType, T: PositionType>(
     chrs: &[C],
     starts: &[T],
     ends: &[T],
@@ -46,60 +37,63 @@ pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
     starts2: &[T],
     ends2: &[T],
     slack: T,
+    overlap_type: &str,
+    contained: bool,
 ) -> (Vec<u32>, Vec<u32>) {
-    // We'll collect all cross overlaps here
-    let mut overlaps = Vec::new();
-    let mut overlaps2 = Vec::new();
+    let overlap_type = OverlapType::from_str(overlap_type).unwrap();
+    let invert = overlap_type == OverlapType::Last;
 
-    if chrs.is_empty() | chrs2.is_empty() {
-        return (overlaps, overlaps2);
-    };
+    if overlap_type == OverlapType::All && !contained {
+        // The common, super-optimized case
+        sweep_line_overlaps(
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            slack,
+        )
+    } else {
+        if !contained {
+            let (sorted_starts, sorted_ends) = compute_sorted_events(
+                chrs,
+                starts,
+                ends,
+                slack,
+                invert,
+            );
+            let (sorted_starts2, sorted_ends2) =
+                compute_sorted_events(chrs2, starts2, ends2, T::zero(), invert);
 
-    let events = sorts::build_sorted_events(chrs, starts, ends, chrs2, starts2, ends2, slack);
-    // Active sets
-    let mut active1 = FxHashSet::default();
-    let mut active2 = FxHashSet::default();
-
-    let mut current_chr = events.first().unwrap().chr;
-
-    // Process events in ascending order of position
-    for e in events {
-        if e.chr != current_chr {
-            active1.clear();
-            active2.clear();
-            current_chr = e.chr;
-        }
-
-        if e.is_start {
-            // Interval is starting
-            if e.first_set {
-                // Overlaps with all currently active intervals in set2
-                for &idx2 in active2.iter() {
-                    overlaps.push(e.idx);
-                    overlaps2.push(idx2);
-                }
-                // Now add it to active1
-                active1.insert(e.idx);
-            } else {
-                // Overlaps with all currently active intervals in set1
-                for &idx1 in active1.iter() {
-                    overlaps.push(idx1);
-                    overlaps2.push(e.idx);
-                }
-                // Now add it to active2
-                active2.insert(e.idx);
-            }
+            let mut pairs = sweep_line_overlaps_overlap_pair(
+                &sorted_starts,
+                &sorted_ends,
+                &sorted_starts2,
+                &sorted_ends2,
+            );
+            keep_first_by_idx(&mut pairs);
+            pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
         } else {
-            // Interval is ending
-            if e.first_set {
-                active1.remove(&e.idx);
+            let maxevents = compute_sorted_maxevents(
+                chrs,
+                starts,
+                ends,
+                chrs2,
+                starts2,
+                ends2,
+                slack,
+                invert,
+            );
+            let mut pairs = sweep_line_overlaps_containment(maxevents);
+            if overlap_type == OverlapType::All {
+                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
             } else {
-                active2.remove(&e.idx);
+                keep_first_by_idx(&mut pairs);
+                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
             }
         }
     }
-
-    (overlaps, overlaps2)
 }
 
 pub fn sweep_line_overlaps_set1<C: GroupType, T: PositionType>(
@@ -483,4 +477,68 @@ pub fn compute_sorted_maxevents<C: GroupType, T: PositionType>(
             slack,
         )
     }
+}
+
+pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
+    chrs: &[C],
+    starts: &[T],
+    ends: &[T],
+    chrs2: &[C],
+    starts2: &[T],
+    ends2: &[T],
+    slack: T,
+) -> (Vec<u32>, Vec<u32>) {
+    // We'll collect all cross overlaps here
+    let mut overlaps = Vec::new();
+    let mut overlaps2 = Vec::new();
+
+    if chrs.is_empty() | chrs2.is_empty() {
+        return (overlaps, overlaps2);
+    };
+
+    let events = sorts::build_sorted_events(chrs, starts, ends, chrs2, starts2, ends2, slack);
+    // Active sets
+    let mut active1 = FxHashSet::default();
+    let mut active2 = FxHashSet::default();
+
+    let mut current_chr = events.first().unwrap().chr;
+
+    // Process events in ascending order of position
+    for e in events {
+        if e.chr != current_chr {
+            active1.clear();
+            active2.clear();
+            current_chr = e.chr;
+        }
+
+        if e.is_start {
+            // Interval is starting
+            if e.first_set {
+                // Overlaps with all currently active intervals in set2
+                for &idx2 in active2.iter() {
+                    overlaps.push(e.idx);
+                    overlaps2.push(idx2);
+                }
+                // Now add it to active1
+                active1.insert(e.idx);
+            } else {
+                // Overlaps with all currently active intervals in set1
+                for &idx1 in active1.iter() {
+                    overlaps.push(idx1);
+                    overlaps2.push(e.idx);
+                }
+                // Now add it to active2
+                active2.insert(e.idx);
+            }
+        } else {
+            // Interval is ending
+            if e.first_set {
+                active1.remove(&e.idx);
+            } else {
+                active2.remove(&e.idx);
+            }
+        }
+    }
+
+    (overlaps, overlaps2)
 }

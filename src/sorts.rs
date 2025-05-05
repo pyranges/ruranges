@@ -1,6 +1,3 @@
-use num_traits::{PrimInt, Signed, Zero};
-use std::hash::Hash; // You'll need the num-traits crate
-
 use radsort::sort_by_key;
 
 use crate::ruranges_structs::Event;
@@ -55,12 +52,12 @@ pub fn build_intervals<C: GroupType, T: PositionType>(
     intervals
 }
 
-pub fn build_subsequence_intervals<T: PositionType>(
-    chrs: &[u32],
+pub fn build_subsequence_intervals<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
-) -> Vec<SplicedSubsequenceInterval<T>> {
+) -> Vec<SplicedSubsequenceInterval<G, T>> {
     let mut intervals = Vec::with_capacity(chrs.len());
     for i in 0..chrs.len() {
         intervals.push(SplicedSubsequenceInterval {
@@ -130,12 +127,12 @@ pub fn build_sorted_intervals<C: GroupType, T: PositionType>(
     intervals
 }
 
-pub fn build_sorted_subsequence_intervals<T: PositionType>(
-    chrs: &[u32],
+pub fn build_sorted_subsequence_intervals<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
-) -> Vec<SplicedSubsequenceInterval<T>> {
+) -> Vec<SplicedSubsequenceInterval<G, T>> {
     let mut intervals = build_subsequence_intervals(chrs, starts, ends, strand_flags);
 
     sort_by_key(&mut intervals, |i| i.end);
@@ -163,8 +160,8 @@ pub fn build_sorted_sequence_intervals(
     intervals
 }
 
-pub fn sort_order_idx<T: PositionType>(
-    chrs: &[u32],
+pub fn sort_order_idx<G: GroupType, T: PositionType>(
+    chrs: &[G],
     starts: &[T],
     ends: &[T],
     sort_reverse_direction: Option<&[bool]>,

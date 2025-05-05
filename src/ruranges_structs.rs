@@ -1,9 +1,9 @@
-use num_traits::{PrimInt, Signed, Zero};
+use num_traits::{PrimInt, Signed, ToPrimitive, Zero};
 use numpy::Element; // You'll need the num-traits crate
-use std::hash::Hash;
+use std::{hash::Hash, str::FromStr};
 
-pub trait PositionType: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Zero {}
-impl<T> PositionType for T where T: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Zero {}
+pub trait PositionType: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero {}
+impl<T> PositionType for T where T: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero {}
 pub trait GroupType: PrimInt + Hash + Copy + radsort::Key + Zero {}
 impl<T> GroupType for T where T: PrimInt + Hash + Copy + radsort::Key + Zero {}
 
@@ -76,9 +76,9 @@ pub struct Nearest<T: PositionType> {
 }
 
 #[derive(Debug, Clone)]
-pub struct SplicedSubsequenceInterval<T: PositionType> {
+pub struct SplicedSubsequenceInterval<G: GroupType, T: PositionType> {
     /// Encoded chromosome (or chrom+strand+gene) ID.
-    pub chr: u32,
+    pub chr: G,
 
     /// The genomic start coordinate.
     pub start: T,
@@ -113,4 +113,24 @@ pub struct GenericEvent<C: GroupType, T: PositionType> {
     pub is_start: bool,
     pub first_set: bool,
     pub idx: u32,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum OverlapType {
+    First,
+    Last,
+    All,
+}
+
+impl FromStr for OverlapType {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "all" => Ok(OverlapType::All),
+            "first" => Ok(OverlapType::First),
+            "last" => Ok(OverlapType::Last),
+            _ => Err("Invalid direction string"),
+        }
+    }
 }
