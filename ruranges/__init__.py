@@ -54,8 +54,8 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "tile_numpy": ("grp", "pos", "pos", "fraction"),
     "complement_numpy": ("grp", "pos", "pos", "index"),
     "boundary_numpy": ("index", "pos", "pos", "count"),
-    "spliced_subsequence_numpy": ("index", "pos", "pos", "strand"),
-    "spliced_subsequence_per_row_numpy": ("index", "pos", "pos", "strand"),
+    "spliced_subsequence_numpy": ("index", "pos", "pos", "_strand"),
+    "spliced_subsequence_per_row_numpy": ("index", "pos", "pos", "strand",),
     "split_numpy": ("index", "pos", "pos"),
     "extend_numpy": ("pos", "pos"),
     "genome_bounds_numpy": ("index", "pos", "pos"),
@@ -774,11 +774,13 @@ def spliced_subsequence_per_row(
     strand_flags: NDArray[np.bool_],
     starts_subseq: NDArray[RangeInt],
     ends_subseq: NDArray[RangeInt],
+    strands_subseq: NDArray[np.bool_],
     force_plus_strand: bool = False,
 ) -> tuple[
     NDArray[GroupIdInt],   # indices
     NDArray[RangeInt],     # new starts
     NDArray[RangeInt],     # new ends
+    NDArray[np.bool_],     # new ends
 ]:
     """
     Trim each **row** (exon) to the `[start_i, end_i)` spliced coordinates
@@ -808,14 +810,15 @@ def spliced_subsequence_per_row(
     """
     return _dispatch_unary(
         "spliced_subsequence_per_row_numpy",
-        groups,
         starts,
         ends,
+        groups,
         strand_flags=strand_flags,
         starts_subseq=starts_subseq,
         ends_subseq=ends_subseq,
+        strands_subseq=strands_subseq,
         force_plus_strand=force_plus_strand,
-    )[0:3]
+    )
 
 
 def split(

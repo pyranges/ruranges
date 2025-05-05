@@ -80,6 +80,7 @@ macro_rules! define_spliced_subsequence_per_row_numpy {
             strand_flags,
             starts_subseq,
             ends_subseq,
+            strands_subseq,
             force_plus_strand = false
         ))]
         #[allow(non_snake_case)]
@@ -90,6 +91,7 @@ macro_rules! define_spliced_subsequence_per_row_numpy {
             strand_flags:       PyReadonlyArray1<bool>,
             starts_subseq:      PyReadonlyArray1<$pos_ty>,
             ends_subseq:        PyReadonlyArray1<$pos_ty>,
+            strands_subseq:     PyReadonlyArray1<bool>,
             force_plus_strand:  bool,
             py: Python<'_>,
         ) -> PyResult<(
@@ -105,6 +107,7 @@ macro_rules! define_spliced_subsequence_per_row_numpy {
                 strand_flags.as_slice()?,
                 starts_subseq.as_slice()?,
                 ends_subseq.as_slice()?,
+                strands_subseq.as_slice()?,
                 force_plus_strand,
             );
 

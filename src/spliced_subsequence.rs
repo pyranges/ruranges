@@ -123,6 +123,7 @@ pub fn spliced_subseq_per_row<G: GroupType, T: PositionType>(
     strand_flags: &[bool],
     multi_starts: &[T],
     multi_ends: &[T],
+    query_forward: &[bool],
     force_plus_strand: bool,
 ) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<bool>) {
     let mut intervals = build_sorted_subsequence_intervals(chrs, starts, ends, strand_flags);
@@ -149,6 +150,7 @@ pub fn spliced_subseq_per_row<G: GroupType, T: PositionType>(
                 i,
                 multi_starts,
                 multi_ends,
+                query_forward,
                 force_plus_strand,
                 &mut all_idxs,
                 &mut all_starts,
@@ -174,6 +176,7 @@ pub fn spliced_subseq_per_row<G: GroupType, T: PositionType>(
         intervals.len(),
         multi_starts,
         multi_ends,
+        query_forward,
         force_plus_strand,
         &mut all_idxs,
         &mut all_starts,
@@ -186,21 +189,23 @@ pub fn spliced_subseq_per_row<G: GroupType, T: PositionType>(
 
 // ───────────────────────────────── helper for the multi-row case ─────────────
 
+// ────────────────────────────────────────────────────────────────────────────
+// helper that finalises one transcript (group) for many query rows
+// ────────────────────────────────────────────────────────────────────────────
 fn finalize_rows_in_group<G: GroupType, T: PositionType>(
-    group_buf: &[SplicedSubsequenceInterval<G, T>],
-    row_start: usize,
-    row_end: usize,
-    multi_starts: &[T],
-    multi_ends: &[T],
+    group_buf:         &[SplicedSubsequenceInterval<G, T>],
+    row_start:         usize,
+    row_end:           usize,
+    multi_starts:      &[T],
+    multi_ends:        &[T],
+    query_forward:     &[bool],
     force_plus_strand: bool,
-    all_idxs:    &mut Vec<u32>,
-    all_starts:  &mut Vec<T>,
-    all_ends:    &mut Vec<T>,
-    all_strands: &mut Vec<bool>,
+    all_idxs:          &mut Vec<u32>,
+    all_starts:        &mut Vec<T>,
+    all_ends:          &mut Vec<T>,
+    all_strands:       &mut Vec<bool>,
 ) {
-    if group_buf.is_empty() {
-        return;
-    }
+    if group_buf.is_empty() { return; }
 
     let total_len = group_buf.last().unwrap().temp_cumsum;
 
@@ -209,6 +214,7 @@ fn finalize_rows_in_group<G: GroupType, T: PositionType>(
             group_buf,
             multi_starts[row],
             multi_ends  [row],
+            query_forward[row],          // ← pass the flag down
             total_len,
             force_plus_strand,
         );
@@ -219,39 +225,51 @@ fn finalize_rows_in_group<G: GroupType, T: PositionType>(
     }
 }
 
-/// Same as before, but now also returns the strand vector.
+// ────────────────────────────────────────────────────────────────────────────
+// core routine: projects one (start,end) onto one transcript
+// ────────────────────────────────────────────────────────────────────────────
 fn finalize_group<G: GroupType, T: PositionType>(
-    group: &[SplicedSubsequenceInterval<G, T>],
-    subseq_start: T,
-    subseq_end:   T,
-    total_len:    T,
-    force_plus_strand: bool,
+    group:              &[SplicedSubsequenceInterval<G, T>],
+    subseq_start:       T,
+    subseq_end:         T,
+    query_forward:      bool,             // ← new argument
+    total_len:          T,
+    force_plus_strand:  bool,
 ) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<bool>) {
-    let global_start = if subseq_start < T::zero() { total_len + subseq_start } else { subseq_start };
-    let global_end   = if subseq_end   < T::zero() { total_len + subseq_end   } else { subseq_end   };
+
+    // translate negative offsets
+    let global_start = if subseq_start < T::zero() { total_len + subseq_start }
+                       else { subseq_start };
+    let global_end   = if subseq_end   < T::zero() { total_len + subseq_end   }
+                       else { subseq_end   };
 
     let mut idxs    = Vec::new();
     let mut sts     = Vec::new();
     let mut ens     = Vec::new();
     let mut strands = Vec::new();
 
-    let group_forward = group[0].forward_strand;
+    let transcript_forward = group[0].forward_strand;
 
+    // closure reused for each exon that the slice intersects
     let mut process_iv = |iv: &SplicedSubsequenceInterval<G, T>| {
         let cumsum_start = iv.temp_cumsum - iv.temp_length;
         let cumsum_end   = iv.temp_cumsum;
 
-        let processed_forward = if force_plus_strand { true } else { iv.forward_strand };
+        // which strand do we perform coordinate arithmetic in?
+        let processed_forward =
+            if force_plus_strand { true } else { iv.forward_strand };
 
         let mut st = iv.start;
         let mut en = iv.end;
 
         if processed_forward {
+            // moving from left-to-right
             let shift = global_start - cumsum_start;
             if shift > T::zero() { st = st + shift; }
             let shift = cumsum_end - global_end;
             if shift > T::zero() { en = en - shift; }
         } else {
+            // moving from right-to-left
             let shift = global_start - cumsum_start;
             if shift > T::zero() { en = en - shift; }
             let shift = cumsum_end - global_end;
@@ -262,14 +280,17 @@ fn finalize_group<G: GroupType, T: PositionType>(
             idxs.push(iv.idx);
             sts .push(st);
             ens .push(en);
-            strands.push(iv.forward_strand == processed_forward);
+
+            // (+,+) or (−,−) → '+',  (+,−) or (−,+) → '−'
+            strands.push(iv.forward_strand == query_forward);
         }
     };
 
-    if group_forward {
-        for iv in group.iter()        { process_iv(iv); }
+    // walk exons in transcription order
+    if transcript_forward {
+        for iv in group.iter()       { process_iv(iv); }
     } else {
-        for iv in group.iter().rev()  { process_iv(iv); }
+        for iv in group.iter().rev() { process_iv(iv); }
     }
 
     (idxs, sts, ens, strands)
