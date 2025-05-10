@@ -15,6 +15,21 @@ pub struct GenomicData<C: GroupType, P: PositionType> {
 }
 
 #[derive(Debug, Clone)]
+pub struct MinInterval<T: PositionType> {
+    pub start: T,
+    pub end: T,
+    pub idx: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct StrandInterval<T: PositionType> {
+    pub start: T,
+    pub end: T,
+    pub idx: u32,
+    pub fwd: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct Interval<C: GroupType, T: PositionType> {
     pub group: C,
     pub start: T,
@@ -68,7 +83,7 @@ pub struct OverlapPair {
     pub idx2: u32,
 }
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Copy)]
 pub struct Nearest<T: PositionType> {
     pub distance: T,
     pub idx: u32,
@@ -133,4 +148,12 @@ impl FromStr for OverlapType {
             _ => Err("Invalid direction string"),
         }
     }
+}
+
+
+pub struct SplicedRecord<T> {
+    pub idx: u32,
+    pub start: T,
+    pub end: T,
+    pub strand: bool,
 }

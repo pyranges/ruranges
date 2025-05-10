@@ -1,8 +1,9 @@
 use num_traits::{PrimInt, Signed, Zero};
+use radsort::sort_by_key;
 use rustc_hash::FxHashMap;
 use std::hash::Hash;
 
-use crate::{ruranges_structs::{GroupType, PositionType}, sorts};
+use crate::{ruranges_structs::{GroupType, Interval, MinEvent, MinInterval, PositionType}, sorts};
 
 pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
     chrs1: &[G],
@@ -25,10 +26,8 @@ pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
     let events =
         sorts::build_sorted_events_idxs(chrs1, starts1, ends1, chrs2, starts2, ends2, T::zero());
 
-    // Output buffers
-    let mut result_idxs = Vec::new();
-    let mut result_starts = Vec::new();
-    let mut result_ends = Vec::new();
+    let mut out_events = Vec::new();
+
 
     // Track how many set2 intervals are active
     let mut active2_count: i64 = 0;
@@ -86,9 +85,7 @@ pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
                 if let Some(start_pos) = active1.get(&e.idx).cloned().unwrap_or(None) {
                     // We are capturing. End the sub-interval at e.pos
                     if start_pos < pos {
-                        result_idxs.push(e.idx);
-                        result_starts.push(start_pos);
-                        result_ends.push(pos);
+                        out_events.push(MinInterval {start: start_pos, end: pos, idx: e.idx});
                     }
                 }
                 // Remove it from active1
@@ -108,9 +105,7 @@ pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
                         if let Some(start_pos) = maybe_start {
                             // Close at current event pos (exclusive or inclusive depends on your semantics)
                             if start_pos < pos {
-                                result_idxs.push(idx1);
-                                result_starts.push(start_pos);
-                                result_ends.push(pos);
+                                out_events.push(MinInterval {start: start_pos, end: pos, idx: idx1});
                             }
                         }
                     }
@@ -143,8 +138,18 @@ pub fn sweep_line_subtract<G: GroupType, T: PositionType>(
 
         // 3. Move on to the next event
     }
+    sort_by_key(&mut out_events, |i| i.idx);
 
     // No final cleanup is strictly necessary if every set1 interval has a corresponding end event.
+    let mut out_idxs    = Vec::with_capacity(out_events.len());
+    let mut out_starts  = Vec::with_capacity(out_events.len());
+    let mut out_ends    = Vec::with_capacity(out_events.len());
 
-    (result_idxs, result_starts, result_ends)
+    for rec in out_events {
+        out_idxs.push(rec.idx);
+        out_starts.push(rec.start);
+        out_ends.push(rec.end);
+    }
+
+    (out_idxs, out_starts, out_ends)
 }
