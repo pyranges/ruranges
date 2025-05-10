@@ -71,5 +71,6 @@ pub fn sweep_line_non_overlaps<G: GroupType, T: PositionType>(
         }
     }
 
+    radsort::sort(&mut no_overlaps);
     no_overlaps
 }

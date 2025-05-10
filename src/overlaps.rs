@@ -1,12 +1,13 @@
 use std::str::FromStr;
+use std::time::{Duration, Instant};
 
+use radsort::sort_by_key;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::helpers::keep_first_by_idx;
 use crate::ruranges_structs::{GroupType, MaxEvent, MinEvent, OverlapPair, OverlapType, PositionType};
 use crate::sorts::{
-    self, build_sorted_events_single_collection_separate_outputs,
-    build_sorted_maxevents_with_starts_ends,
+    self, build_sorted_events_single_collection_separate_outputs, build_sorted_maxevents_with_starts_ends
 };
 
 /// Perform a four-way merge sweep to find cross overlaps.
@@ -43,7 +44,7 @@ pub fn overlaps<C: GroupType, T: PositionType>(
     let overlap_type = OverlapType::from_str(overlap_type).unwrap();
     let invert = overlap_type == OverlapType::Last;
 
-    if overlap_type == OverlapType::All && !contained {
+    let mut result_pairs = if overlap_type == OverlapType::All && !contained {
         // The common, super-optimized case
         sweep_line_overlaps(
             chrs,
@@ -73,7 +74,7 @@ pub fn overlaps<C: GroupType, T: PositionType>(
                 &sorted_ends2,
             );
             keep_first_by_idx(&mut pairs);
-            pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+            pairs
         } else {
             let maxevents = compute_sorted_maxevents(
                 chrs,
@@ -87,13 +88,15 @@ pub fn overlaps<C: GroupType, T: PositionType>(
             );
             let mut pairs = sweep_line_overlaps_containment(maxevents);
             if overlap_type == OverlapType::All {
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+                pairs
             } else {
                 keep_first_by_idx(&mut pairs);
-                pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+                pairs
             }
         }
-    }
+    };
+    sort_by_key(&mut result_pairs, |p| p.idx);
+    result_pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
 }
 
 pub fn sweep_line_overlaps_set1<C: GroupType, T: PositionType>(
@@ -479,6 +482,7 @@ pub fn compute_sorted_maxevents<C: GroupType, T: PositionType>(
     }
 }
 
+
 pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
     chrs: &[C],
     starts: &[T],
@@ -487,19 +491,19 @@ pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
     starts2: &[T],
     ends2: &[T],
     slack: T,
-) -> (Vec<u32>, Vec<u32>) {
+) -> (Vec<OverlapPair>) {
     // We'll collect all cross overlaps here
     let mut overlaps = Vec::new();
-    let mut overlaps2 = Vec::new();
-
-    if chrs.is_empty() | chrs2.is_empty() {
-        return (overlaps, overlaps2);
-    };
 
     let events = sorts::build_sorted_events(chrs, starts, ends, chrs2, starts2, ends2, slack);
+
+    if events.is_empty() {
+        return overlaps;
+    };
+
     // Active sets
     let mut active1 = FxHashSet::default();
-    let mut active2 = FxHashSet::default();
+    let mut active2 =FxHashSet::default();
 
     let mut current_chr = events.first().unwrap().chr;
 
@@ -516,18 +520,21 @@ pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
             if e.first_set {
                 // Overlaps with all currently active intervals in set2
                 for &idx2 in active2.iter() {
-                    overlaps.push(e.idx);
-                    overlaps2.push(idx2);
+                    overlaps.push(OverlapPair {
+                        idx: e.idx,
+                        idx2: idx2,
+                    });
                 }
                 // Now add it to active1
                 active1.insert(e.idx);
             } else {
                 // Overlaps with all currently active intervals in set1
-                for &idx1 in active1.iter() {
-                    overlaps.push(idx1);
-                    overlaps2.push(e.idx);
-                }
-                // Now add it to active2
+                for &idx in active1.iter() {
+                        overlaps.push(OverlapPair {
+                            idx: idx,
+                            idx2: e.idx,
+                        });
+                    };
                 active2.insert(e.idx);
             }
         } else {
@@ -540,5 +547,5 @@ pub fn sweep_line_overlaps<C: GroupType, T: PositionType>(
         }
     }
 
-    (overlaps, overlaps2)
+    overlaps
 }

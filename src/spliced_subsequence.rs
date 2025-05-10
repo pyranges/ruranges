@@ -1,3 +1,5 @@
+use radsort::sort_by_key;
+
 use crate::{
     ruranges_structs::{GroupType, PositionType, SplicedSubsequenceInterval},
     sorts::build_sorted_subsequence_intervals,
@@ -18,15 +20,20 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
         return (Vec::new(), Vec::new(), Vec::new(), Vec::new());
     }
 
+    // ────────────── helper struct ──────────────
+    struct OutRec<T: PositionType> {
+        idx: u32,
+        start: T,
+        end: T,
+        strand: bool,
+    }
+
     // pre-sorted by (chr, start, end) in caller code
     let intervals = build_sorted_subsequence_intervals(chrs, starts, ends, strand_flags);
 
-    let mut out_idxs    = Vec::with_capacity(intervals.len());
-    let mut out_starts  = Vec::with_capacity(intervals.len());
-    let mut out_ends    = Vec::with_capacity(intervals.len());
-    let mut out_strands = Vec::with_capacity(intervals.len());
+    let mut out_recs: Vec<OutRec<T>> = Vec::with_capacity(intervals.len());
 
-    let mut group_buf:  Vec<SplicedSubsequenceInterval<G, T>> = Vec::new();
+    let mut group_buf: Vec<SplicedSubsequenceInterval<G, T>> = Vec::new();
     let mut current_chr = intervals[0].chr;
     let mut running_sum = T::zero();
 
@@ -37,8 +44,8 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
         }
 
         // total spliced length of this transcript
-        let total_len  = group.last().unwrap().temp_cumsum;
-        let end_val    = end.unwrap_or(total_len);
+        let total_len = group.last().unwrap().temp_cumsum;
+        let end_val   = end.unwrap_or(total_len);
 
         // handle negative coordinates from 3′ end
         let global_start = if start < T::zero() { total_len + start } else { start };
@@ -70,19 +77,20 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
             }
 
             if st < en {
-                out_idxs   .push(iv.idx);
-                out_starts .push(st);
-                out_ends   .push(en);
-                // (+)*(+) or (-)*(-) ➜ '+', else '-'
-                out_strands.push(iv.forward_strand == processed_forward);
+                out_recs.push(OutRec {
+                    idx:    iv.idx,
+                    start:  st,
+                    end:    en,
+                    strand: iv.forward_strand == processed_forward, // (+)*(+) or (-)*(-) ➜ '+'
+                });
             }
         };
 
         // iterate 5′→3′ in transcript space
         if group_forward {
-            for iv in group.iter_mut()  { process_iv(iv); }
+            for iv in group.iter_mut()        { process_iv(iv); }
         } else {
-            for iv in group.iter_mut().rev() { process_iv(iv); }
+            for iv in group.iter_mut().rev()  { process_iv(iv); }
         }
     };
     // ----------------------------------------------------------------------
@@ -108,8 +116,24 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
     }
     finalize_group(&mut group_buf);
 
+    sort_by_key(&mut out_recs, |r| r.idx);
+
+    // ------------------ explode OutRec list into four parallel arrays ------------------
+    let mut out_idxs    = Vec::with_capacity(out_recs.len());
+    let mut out_starts  = Vec::with_capacity(out_recs.len());
+    let mut out_ends    = Vec::with_capacity(out_recs.len());
+    let mut out_strands = Vec::with_capacity(out_recs.len());
+
+    for rec in out_recs {
+        out_idxs.push(rec.idx);
+        out_starts.push(rec.start);
+        out_ends.push(rec.end);
+        out_strands.push(rec.strand);
+    }
+
     (out_idxs, out_starts, out_ends, out_strands)
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // multi-row variant: one pass over the exons, many slices per transcript

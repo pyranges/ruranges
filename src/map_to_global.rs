@@ -1,8 +1,9 @@
 
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
+use radsort::sort_by_key;
 
-use crate::ruranges_structs::{GroupType, PositionType};
+use crate::ruranges_structs::{GroupType, PositionType, StrandInterval};
 
 
 #[allow(clippy::too_many_arguments)]
@@ -37,10 +38,7 @@ pub fn map_to_global<G: GroupType, T: PositionType>(
     debug_assert_eq!(q_tx.len(), q_fwd.len());
 
     // ------------------- output buffers -----------------------------------
-    let mut out_idx:   Vec<u32> = Vec::new();
-    let mut out_start = Vec::new();
-    let mut out_end = Vec::new();
-    let mut out_fwd = Vec::new();
+    let mut results = Vec::new();
 
     // ------------------- two-pointer sweep ---------------------------------
     let mut ei = 0usize;                      // exon pointer
@@ -110,10 +108,7 @@ pub fn map_to_global<G: GroupType, T: PositionType>(
                 };
 
                 // push result
-                out_idx  .push(idx);
-                out_start.push(g_start);
-                out_end  .push(g_end);
-                out_fwd  .push(local_f == ex_fwd[ek]);
+                results.push(StrandInterval {start: g_start, end: g_end, idx: idx, fwd: local_f == ex_fwd[ek]});
 
                 // advance inside query
                 l = seg_end_local;
@@ -132,5 +127,19 @@ pub fn map_to_global<G: GroupType, T: PositionType>(
         }
     }
 
-    (out_idx, out_start, out_end, out_fwd)
+    sort_by_key(&mut results, |i| i.idx);
+
+    let mut out_idxs    = Vec::with_capacity(results.len());
+    let mut out_starts  = Vec::with_capacity(results.len());
+    let mut out_ends = Vec::with_capacity(results.len());
+    let mut out_strands = Vec::with_capacity(results.len());
+
+    for rec in results {
+        out_idxs.push(rec.idx);
+        out_starts.push(rec.start);
+        out_ends.push(rec.end);
+        out_strands.push(rec.fwd);
+    }
+
+    (out_idxs, out_starts, out_ends, out_strands)
 }

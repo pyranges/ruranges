@@ -1,5 +1,7 @@
 use std::{str::FromStr, time::Instant};
 
+use radsort::sort_by_key;
+
 use crate::{
     overlaps::{self, sweep_line_overlaps, sweep_line_overlaps_overlap_pair},
     ruranges_structs::{GroupType, MinEvent, Nearest, OverlapPair, PositionType},
@@ -265,9 +267,7 @@ pub fn merge_three_way_by_index_distance<T: PositionType>(
 ) -> (Vec<u32>, Vec<u32>, Vec<T>) {
     // We'll return tuples: (idx, idx2, distance).
     // You can adapt if you want a custom struct instead.
-    let mut idxs1 = Vec::new();
-    let mut idxs2 = Vec::new();
-    let mut distance = Vec::new();
+    let mut results = Vec::new();
 
     // Pointers over each input
     let (mut i, mut j, mut r) = (0_usize, 0_usize, 0_usize);
@@ -376,9 +376,7 @@ pub fn merge_three_way_by_index_distance<T: PositionType>(
                     }
                     // Add to result
                     let OverlapPair { idx, idx2 } = overlaps_slice[oi];
-                    idxs1.push(idx);
-                    idxs2.push(idx2);
-                    distance.push(dcur);
+                    results.push(Nearest { idx: idx, idx2: idx2, distance: T::zero() });
                     oi += 1;
                 } else {
                     break;
@@ -399,10 +397,7 @@ pub fn merge_three_way_by_index_distance<T: PositionType>(
                         }
                         used_distances.insert(dcur);
                     }
-                    let item = &left_slice[lj];
-                    idxs1.push(item.idx);
-                    idxs2.push(item.idx2);
-                    distance.push(dcur);
+                    results.push(left_slice[lj]);
                     lj += 1;
                 } else {
                     break;
@@ -423,10 +418,7 @@ pub fn merge_three_way_by_index_distance<T: PositionType>(
                         }
                         used_distances.insert(dcur);
                     }
-                    let item = &right_slice[rr];
-                    idxs1.push(item.idx);
-                    idxs2.push(item.idx2);
-                    distance.push(dcur);
+                    results.push(right_slice[rr]);
                     rr += 1;
                 } else {
                     break;
@@ -439,5 +431,17 @@ pub fn merge_three_way_by_index_distance<T: PositionType>(
         // done collecting up to k distinct distances for this index
     }
 
-    (idxs1, idxs2, distance)
+    sort_by_key(&mut results, |n| (n.idx, n.distance, n.idx2));
+
+    let mut out_idxs    = Vec::with_capacity(results.len());
+    let mut out_idxs2  = Vec::with_capacity(results.len());
+    let mut out_distances = Vec::with_capacity(results.len());
+
+    for rec in results {
+        out_idxs.push(rec.idx);
+        out_idxs2.push(rec.idx2);
+        out_distances.push(rec.distance);
+    }
+
+    (out_idxs, out_idxs2, out_distances)
 }

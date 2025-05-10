@@ -1,6 +1,6 @@
 use radsort::sort_by_key;
 
-use crate::{ruranges_structs::{GroupType, PositionType}, sorts::build_subsequence_intervals};
+use crate::{ruranges_structs::{GroupType, MinInterval, PositionType}, sorts::build_subsequence_intervals};
 
 
 pub fn sweep_line_cumsum<G, T>(
@@ -17,12 +17,10 @@ where
 
     sort_by_key(&mut ivals, |iv| (iv.chr, iv.start));
 
-    let mut idx_out       = Vec::with_capacity(chrs.len());
-    let mut cumsum_start  = Vec::with_capacity(chrs.len());
-    let mut cumsum_end    = Vec::with_capacity(chrs.len());
+    let mut results= Vec::with_capacity(chrs.len());
 
     if ivals.is_empty() {
-        return (idx_out, cumsum_start, cumsum_end);
+        return (Vec::with_capacity(chrs.len()),Vec::with_capacity(chrs.len()), Vec::with_capacity(chrs.len()));
     }
 
     let mut current_chr   = ivals[0].chr;
@@ -39,11 +37,21 @@ where
         let s = running_total;
         let e = running_total + len;
 
-        idx_out.push(iv.idx);
-        cumsum_start.push(s);
-        cumsum_end.push(e);
+        results.push(MinInterval {idx: iv.idx, start: s, end: e});
         running_total = e;
     }
 
-    (idx_out, cumsum_start, cumsum_end)
+    sort_by_key(&mut results, |i| i.idx);
+
+    let mut out_idxs    = Vec::with_capacity(results.len());
+    let mut out_starts  = Vec::with_capacity(results.len());
+    let mut out_ends = Vec::with_capacity(results.len());
+
+    for rec in results {
+        out_idxs.push(rec.idx);
+        out_starts.push(rec.start);
+        out_ends.push(rec.end);
+    }
+
+    (out_idxs, out_starts, out_ends)
 }
