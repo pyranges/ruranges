@@ -10,13 +10,15 @@ macro_rules! define_cumsum_numpy {
             groups,
             starts,
             ends,
-            negative_strand = None     // optional in Python ⇢ required in Rust
+            negative_strand = None,
+            sort = true,
         ))]
         pub fn $fname(
             groups:          PyReadonlyArray1<$grp_ty>,
             starts:          PyReadonlyArray1<$pos_ty>,
             ends:            PyReadonlyArray1<$pos_ty>,
             negative_strand: Option<PyReadonlyArray1<bool>>,
+            sort: bool,
             py: Python<'_>,
         ) -> PyResult<(
             Py<PyArray1<u32>>,
@@ -31,7 +33,7 @@ macro_rules! define_cumsum_numpy {
 
             let (idxs, cumsum_starts, cumsum_ends) = sweep_line_cumsum(
                 groups.as_slice()?, starts.as_slice()?, ends.as_slice()?,
-                neg.as_slice()?,
+                neg.as_slice()?, sort,
             );
 
             Ok((

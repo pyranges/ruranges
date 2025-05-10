@@ -900,6 +900,7 @@ def group_cumsum(
     ends: NDArray[RangeInt],
     negative_strand: NDArray[np.bool_],
     groups: NDArray[GroupIdInt] | None = None,
+    sort: bool = True,
 ) -> tuple[NDArray[np.uint32], NDArray[RangeInt], NDArray[RangeInt]]:
     """
     Strand-aware cumulative lengths of every interval.
@@ -917,6 +918,8 @@ def group_cumsum(
     groups : 1-D integer array, optional
         Chromosome / contig / group IDs.  If *None*, every interval is assumed
         to belong to a single group (filled with zeros).
+    sort : bool, default True
+        Whether to sort the results by the original row order.
 
     Returns
     -------
@@ -941,6 +944,7 @@ def group_cumsum(
         ends=ends,
         groups=groups,
         negative_strand=negative_strand,
+        sort=sort,
     )
 
 

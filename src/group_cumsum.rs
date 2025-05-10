@@ -8,6 +8,7 @@ pub fn sweep_line_cumsum<G, T>(
     starts: &[T],
     ends: &[T],
     strand_flags: &[bool],
+    sort: bool,
 ) -> (Vec<u32>, Vec<T>, Vec<T>)
 where
     G: GroupType,
@@ -41,7 +42,9 @@ where
         running_total = e;
     }
 
-    sort_by_key(&mut results, |i| i.idx);
+    if sort {
+        sort_by_key(&mut results, |i| i.idx);
+    }
 
     let mut out_idxs    = Vec::with_capacity(results.len());
     let mut out_starts  = Vec::with_capacity(results.len());
