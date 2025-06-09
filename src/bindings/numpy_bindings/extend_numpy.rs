@@ -10,29 +10,23 @@ macro_rules! define_extend_numpy {
             groups,
             starts,
             ends,
-            negative_strand = None,      // optional (Python requires a default)
-            ext   = None,
-            ext_3 = None,
-            ext_5 = None
+            negative_strand,      // optional (Python requires a default)
+            ext_3,
+            ext_5
         ))]
         pub fn $fname(
             groups:           PyReadonlyArray1<$grp_ty>,
             starts:           PyReadonlyArray1<$pos_ty>,
             ends:             PyReadonlyArray1<$pos_ty>,
-            negative_strand:  Option<PyReadonlyArray1<bool>>,
-            ext:   Option<$pos_ty>,
-            ext_3: Option<$pos_ty>,
-            ext_5: Option<$pos_ty>,
+            negative_strand:  PyReadonlyArray1<bool>,
+            ext_3: $pos_ty,
+            ext_5: $pos_ty,
             py: Python<'_>,
         ) -> PyResult<(Py<PyArray1<$pos_ty>>, Py<PyArray1<$pos_ty>>)> {
-            use pyo3::exceptions::PyValueError;
-
-            let neg = negative_strand
-                .ok_or_else(|| PyValueError::new_err("negative_strand is required"))?;
 
             let (new_starts, new_ends) = extend::extend_grp(
                     groups.as_slice()?, starts.as_slice()?, ends.as_slice()?,
-                    neg.as_slice()?, ext, ext_3, ext_5,
+                    negative_strand.as_slice()?, ext_3, ext_5,
                 );
 
             Ok((

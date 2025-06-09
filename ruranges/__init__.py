@@ -874,9 +874,8 @@ def extend(
     ends: NDArray[RangeInt],
     negative_strand: NDArray[np.bool_],
     groups: NDArray[GroupIdInt] | None = None,
-    ext: int | None = None,
-    ext_3: int | None = None,
-    ext_5: int | None = None,
+    ext_3: int,
+    ext_5: int,
 ) -> tuple[NDArray[RangeInt], NDArray[RangeInt]]:
     """Extend intervals upstream/downstream; see full docstring above."""
     if groups is None:
@@ -889,7 +888,6 @@ def extend(
         ends=ends,
         groups=groups,
         negative_strand=negative_strand,
-        ext=ext,
         ext_3=ext_3,
         ext_5=ext_5,
     )
