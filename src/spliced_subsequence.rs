@@ -6,30 +6,70 @@ use crate::{
 };
 
 /// (idxs, starts, ends, strands) for exactly one (start,end) slice
+fn global_shift<T: PositionType>(starts: &[T], ends: &[T]) -> T {
+    let mut min_coord = T::zero();
+    for &v in starts { if v < min_coord { min_coord = v; } }
+    for &v in ends   { if v < min_coord { min_coord = v; } }
+    if min_coord < T::zero() { -min_coord } else { T::zero() }
+}
+
+/// (idxs, starts, ends, strands) for **one** (start,end) slice
 pub fn spliced_subseq<G: GroupType, T: PositionType>(
-    chrs: &[G],
-    starts: &[T],
-    ends: &[T],
-    strand_flags: &[bool],
-    start: T,
-    end: Option<T>,
+    chrs:           &[G],
+    starts:         &[T],
+    ends:           &[T],
+    strand_flags:   &[bool],
+    start:          T,
+    end:            Option<T>,
     force_plus_strand: bool,
 ) -> (Vec<u32>, Vec<T>, Vec<T>, Vec<bool>) {
-    // nothing to do
-    if chrs.is_empty() {
-        return (Vec::new(), Vec::new(), Vec::new(), Vec::new());
-    }
 
-    // ────────────── helper struct ──────────────
+    // ────────────────────────── 1. pre-processing: apply global shift ─────
+    let shift = global_shift(starts, ends);
+
+    // Either borrow the original slices (shift == 0) or build shifted copies.
+    // `tmp_storage` keeps the vectors alive for as long as we need the slices.
+    let (starts_slice, ends_slice);
+    let _tmp_storage: Option<(Vec<T>, Vec<T>)>;
+
+    if shift > T::zero() {
+        let mut s = Vec::with_capacity(starts.len());
+        let mut e = Vec::with_capacity(ends.len());
+        for i in 0..starts.len() {
+            s.push(starts[i] + shift);
+            e.push(ends  [i] + shift);
+        }
+        _tmp_storage = Some((s, e));
+        let (s_ref, e_ref) = _tmp_storage.as_ref().unwrap();
+        starts_slice = s_ref.as_slice();
+        ends_slice   = e_ref.as_slice();
+    } else {
+        _tmp_storage = None;
+        starts_slice = starts;
+        ends_slice   = ends;
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
+    // ────────────── helper struct local to this function ───────────────────
     struct OutRec<T: PositionType> {
-        idx: u32,
-        start: T,
-        end: T,
+        idx:    u32,
+        start:  T,
+        end:    T,
         strand: bool,
     }
 
-    // pre-sorted by (chr, start, end) in caller code
-    let intervals = build_sorted_subsequence_intervals(chrs, starts, ends, strand_flags);
+    // Build sorted interval vector (caller guarantees same grouping rules).
+    let mut intervals = build_sorted_subsequence_intervals(
+        chrs,
+        starts_slice,
+        ends_slice,
+        strand_flags,
+    );
+
+    // Early-exit when nothing to do
+    if intervals.is_empty() {
+        return (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    }
 
     let mut out_recs: Vec<OutRec<T>> = Vec::with_capacity(intervals.len());
 
@@ -37,23 +77,21 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
     let mut current_chr = intervals[0].chr;
     let mut running_sum = T::zero();
 
-    // ---------------- helper: finalise one chromosome-group ----------------
+    // ───────── helper: finalise one transcript/group ───────────────────────
     let mut finalize_group = |group: &mut [SplicedSubsequenceInterval<G, T>]| {
-        if group.is_empty() {
-            return;
-        }
+        if group.is_empty() { return; }
 
-        // total spliced length of this transcript
+        // total spliced length
         let total_len = group.last().unwrap().temp_cumsum;
         let end_val   = end.unwrap_or(total_len);
 
-        // handle negative coordinates from 3′ end
+        // translate negative offsets
         let global_start = if start < T::zero() { total_len + start } else { start };
         let global_end   = if end_val < T::zero() { total_len + end_val } else { end_val };
 
         let group_forward = group[0].forward_strand;
 
-        // small closure so we don’t duplicate the per-exon body
+        // per-exon closure so we don’t duplicate maths
         let mut process_iv = |iv: &mut SplicedSubsequenceInterval<G, T>| {
             let cumsum_start = iv.temp_cumsum - iv.temp_length;
             let cumsum_end   = iv.temp_cumsum;
@@ -61,8 +99,9 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
             let mut st = iv.start;
             let mut en = iv.end;
 
-            // orientation we *process* this exon in
-            let processed_forward = force_plus_strand || iv.forward_strand;
+            // coordinate arithmetic orientation
+            let processed_forward =
+                force_plus_strand || iv.forward_strand;
 
             if processed_forward {
                 let shift = global_start - cumsum_start;
@@ -76,31 +115,32 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
                 if shift > T::zero() { st = st + shift; }
             }
 
+            // keep only non-empty pieces
             if st < en {
                 out_recs.push(OutRec {
                     idx:    iv.idx,
                     start:  st,
                     end:    en,
-                    strand: iv.forward_strand == processed_forward, // (+)*(+) or (-)*(-) ➜ '+'
+                    strand: iv.forward_strand == processed_forward, // (+)*(+) or (−)*(−) → '+'
                 });
             }
         };
 
-        // iterate 5′→3′ in transcript space
+        // walk exons in transcription order
         if group_forward {
-            for iv in group.iter_mut()        { process_iv(iv); }
+            for iv in group.iter_mut()       { process_iv(iv); }
         } else {
-            for iv in group.iter_mut().rev()  { process_iv(iv); }
+            for iv in group.iter_mut().rev() { process_iv(iv); }
         }
     };
-    // ----------------------------------------------------------------------
+    // ───────────────────────────────────────────────────────────────────────
 
-    // linear scan over all exons
+    // single linear scan over all exons
     for mut iv in intervals.into_iter() {
         iv.start = iv.start.abs();
         iv.end   = iv.end.abs();
 
-        // new chromosome ⇒ flush old group
+        // new chromosome ⇒ flush buffer
         if iv.chr != current_chr {
             finalize_group(&mut group_buf);
             group_buf.clear();
@@ -116,9 +156,10 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
     }
     finalize_group(&mut group_buf);
 
+    // restore original row order
     sort_by_key(&mut out_recs, |r| r.idx);
 
-    // ------------------ explode OutRec list into four parallel arrays ------------------
+    // ───────── explode OutRec list into parallel result vectors ────────────
     let mut out_idxs    = Vec::with_capacity(out_recs.len());
     let mut out_starts  = Vec::with_capacity(out_recs.len());
     let mut out_ends    = Vec::with_capacity(out_recs.len());
@@ -130,6 +171,13 @@ pub fn spliced_subseq<G: GroupType, T: PositionType>(
         out_ends.push(rec.end);
         out_strands.push(rec.strand);
     }
+
+    // ─────────────────────────── 3. post-processing: undo shift ────────────
+    if shift > T::zero() {
+        for v in &mut out_starts { *v = *v - shift; }
+        for v in &mut out_ends   { *v = *v - shift; }
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     (out_idxs, out_starts, out_ends, out_strands)
 }
