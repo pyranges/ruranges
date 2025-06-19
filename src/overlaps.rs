@@ -54,7 +54,7 @@ pub fn overlaps<C: GroupType, T: PositionType>(
         sweep_line_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack)
     };
 
-    pairs.sort_by_key(|p| p.idx);
+    sort_by_key(&mut pairs,|p| p.idx);
 
     match overlap_type {
         OverlapType::All => {},
