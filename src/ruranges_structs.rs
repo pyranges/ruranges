@@ -2,8 +2,8 @@ use num_traits::{PrimInt, Signed, ToPrimitive, Zero};
 use numpy::Element; // You'll need the num-traits crate
 use std::{hash::Hash, str::FromStr};
 
-pub trait PositionType: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero {}
-impl<T> PositionType for T where T: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero {}
+pub trait PositionType: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero + std::fmt::Display {}
+impl<T> PositionType for T where T: PrimInt + Signed + Hash + Copy + radsort::Key + Element + Copy + PartialOrd + ToPrimitive + Zero + std::fmt::Display {}
 pub trait GroupType: PrimInt + Hash + Copy + radsort::Key + Zero {}
 impl<T> GroupType for T where T: PrimInt + Hash + Copy + radsort::Key + Zero {}
 

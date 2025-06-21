@@ -1,42 +1,55 @@
+use radsort::sort;
+
 use crate::{ruranges_structs::{GroupType, PositionType}, sorts::build_sorted_intervals};
 
-/// Returns a subset of indexes corresponding to a maximal set of disjoint intervals.
-/// `groups`, `starts`, and `ends` must have the same length.
-/// `slack` controls how far apart intervals must be to be considered non-overlapping.
-pub fn max_disjoint<G:GroupType, T: PositionType>(
+pub fn max_disjoint<G, T>(
     groups: &[G],
     starts: &[T],
     ends: &[T],
     slack: T,
-) -> Vec<u32> {
+) -> Vec<u32>
+where
+    G: GroupType,
+    T: PositionType,
+{
     // Ensure the input slices all have the same length.
     assert_eq!(groups.len(), starts.len());
     assert_eq!(starts.len(), ends.len());
 
-    // Build and sort intervals (presumably by end time)
+    // Build and sort intervals (group ➜ start ➜ end).
     let intervals = build_sorted_intervals(groups, starts, ends, None, slack, true);
 
     if intervals.is_empty() {
-        return vec![];
+        return Vec::new();
     }
 
-    let mut output: Vec<u32> = Vec::new();
+    // Output indices of the chosen, mutually disjoint intervals.
+    let mut output: Vec<u32> = Vec::with_capacity(intervals.len());
 
-    // Always include the first interval.
+    // Always accept the first interval of the first group.
+    let mut current_group = intervals[0].group;
+    let mut last_end      = intervals[0].end;
     output.push(intervals[0].idx as u32);
 
-    // Track the end of the last accepted interval.
-    let mut last_end = intervals[0].end;
-
-    // Iterate through the rest of the intervals.
+    // Walk through the remaining intervals.
     for interval in intervals.iter().skip(1) {
-        // If the current interval starts after (last_end + slack),
-        // it does not overlap, so include it.
-        if interval.start > last_end + slack {
+
+        // NEW: different groups are automatically disjoint – start a fresh tracker.
+        if interval.group != current_group {
+            current_group = interval.group;
+            last_end      = interval.end;
             output.push(interval.idx as u32);
+            continue;
+        }
+
+        // Same group: test true overlap.
+        if interval.start > last_end + slack {
             last_end = interval.end;
+            output.push(interval.idx as u32);
         }
     }
 
+
+    sort(&mut output);
     output
 }

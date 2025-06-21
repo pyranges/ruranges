@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use radsort::sort_by_key;
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::helpers::keep_first_by_idx;
+use crate::helpers::{keep_first_by_idx, keep_last_by_idx};
 use crate::ruranges_structs::{GroupType, MaxEvent, MinEvent, OverlapPair, OverlapType, PositionType};
 use crate::sorts::{
     self, build_sorted_events_single_collection_separate_outputs, build_sorted_maxevents_with_starts_ends
@@ -30,6 +30,7 @@ impl WhichList {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn overlaps<C: GroupType, T: PositionType>(
     chrs: &[C],
     starts: &[T],
@@ -41,62 +42,27 @@ pub fn overlaps<C: GroupType, T: PositionType>(
     overlap_type: &str,
     contained: bool,
 ) -> (Vec<u32>, Vec<u32>) {
-    let overlap_type = OverlapType::from_str(overlap_type).unwrap();
-    let invert = overlap_type == OverlapType::Last;
+    let overlap_type = OverlapType::from_str(overlap_type)
+        .expect("invalid overlap_type string");
 
-    let mut result_pairs = if overlap_type == OverlapType::All && !contained {
-        // The common, super-optimized case
-        sweep_line_overlaps(
-            chrs,
-            starts,
-            ends,
-            chrs2,
-            starts2,
-            ends2,
-            slack,
-        )
+    let mut pairs = if contained {
+        let maxevents = compute_sorted_maxevents(
+            chrs, starts, ends, chrs2, starts2, ends2, slack, false,
+        );
+        sweep_line_overlaps_containment(maxevents)
     } else {
-        if !contained {
-            let (sorted_starts, sorted_ends) = compute_sorted_events(
-                chrs,
-                starts,
-                ends,
-                slack,
-                invert,
-            );
-            let (sorted_starts2, sorted_ends2) =
-                compute_sorted_events(chrs2, starts2, ends2, T::zero(), invert);
-
-            let mut pairs = sweep_line_overlaps_overlap_pair(
-                &sorted_starts,
-                &sorted_ends,
-                &sorted_starts2,
-                &sorted_ends2,
-            );
-            keep_first_by_idx(&mut pairs);
-            pairs
-        } else {
-            let maxevents = compute_sorted_maxevents(
-                chrs,
-                starts,
-                ends,
-                chrs2,
-                starts2,
-                ends2,
-                slack,
-                invert,
-            );
-            let mut pairs = sweep_line_overlaps_containment(maxevents);
-            if overlap_type == OverlapType::All {
-                pairs
-            } else {
-                keep_first_by_idx(&mut pairs);
-                pairs
-            }
-        }
+        sweep_line_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack)
     };
-    sort_by_key(&mut result_pairs, |p| p.idx);
-    result_pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
+
+    sort_by_key(&mut pairs,|p| p.idx);
+
+    match overlap_type {
+        OverlapType::All => {},
+        OverlapType::First => keep_first_by_idx(&mut pairs),
+        OverlapType::Last => keep_last_by_idx(&mut pairs),
+    }
+
+    pairs.into_iter().map(|pair| (pair.idx, pair.idx2)).unzip()
 }
 
 pub fn sweep_line_overlaps_set1<C: GroupType, T: PositionType>(

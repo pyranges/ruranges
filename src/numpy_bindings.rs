@@ -204,17 +204,6 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(spliced_subsequence_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u64_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i32, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u32_i16, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i32, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u16_i16, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i32, m)?)?;
-    m.add_function(wrap_pyfunction!(spliced_subsequence_per_row_numpy_u8_i16, m)?)?;
-
     m.add_function(wrap_pyfunction!(extend_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy_u32_i64, m)?)?;
     m.add_function(wrap_pyfunction!(extend_numpy_u32_i32, m)?)?;
