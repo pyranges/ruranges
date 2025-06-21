@@ -59,7 +59,6 @@ pub fn extend_grp<G: GroupType, T: PositionType>(
             new_start[min_i] = new_start[min_i] - ext_5;
             new_end  [max_i] = new_end  [max_i] + ext_3;
         }
-        new_start[min_i] = new_start[min_i].max(T::zero());
     }
 
     (new_start, new_end)
