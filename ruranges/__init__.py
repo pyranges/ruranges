@@ -3,6 +3,9 @@ from typing import Any, Callable, Literal, TypeVar
 import numpy as np
 from numpy.typing import NDArray
 
+from importlib.metadata import version
+__version__: str = version(__name__)
+
 
 # Define a type variable for groups that allows only int8, int16, or int32.
 GroupIdInt = TypeVar("GroupIdInt", np.int8, np.int16, np.int32)
