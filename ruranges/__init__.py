@@ -1149,7 +1149,7 @@ def validate_groups(
         ValueError: If `groups` is provided but its length does not equal `length`.
     """
     if groups is None:
-        return np.zeros(length, dtype=np.int32)
+        return np.zeros(length, dtype=np.uint8)
 
     if len(groups) != length:
         raise ValueError("`groups` must have the same length as specified by `length`.")
@@ -1273,8 +1273,8 @@ def _dispatch_binary(
     # ------------------------------------------------------------------
     # 4.  Cast inputs for the FFI call
     # ------------------------------------------------------------------
-    g1 = groups.astype(grp_t, copy=False)
-    g2 = groups2.astype(grp_t, copy=False)
+    g1 = groups_validated.astype(grp_t, copy=False)
+    g2 = groups2_validated.astype(grp_t, copy=False)
     s1 = starts.astype(pos_t, copy=False)
     e1 = ends.astype(pos_t, copy=False)
     s2 = starts2.astype(pos_t, copy=False)
