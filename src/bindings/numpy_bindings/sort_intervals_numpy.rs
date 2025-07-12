@@ -29,6 +29,22 @@ macro_rules! define_sort_intervals_numpy {
     };
 }
 
+macro_rules! define_sort_groups_numpy {
+    ($fname:ident, $chr_ty:ty) => {
+        #[pyfunction]
+        #[pyo3(signature = (chrs))]
+        #[allow(non_snake_case)]
+        pub fn $fname(
+            chrs: PyReadonlyArray1<$chr_ty>,
+            py: Python<'_>,
+        ) -> PyResult<Py<PyArray1<u32>>> {
+            let idx = sorts::build_sorted_groups(
+                chrs.as_slice()?,
+            );
+            Ok(idx.into_pyarray(py).to_owned().into())
+        }
+    };
+}
 
 define_sort_intervals_numpy!(sort_intervals_numpy_u64_i64, u64, i64);
 define_sort_intervals_numpy!(sort_intervals_numpy_u32_i64, u32, i64);
@@ -40,3 +56,8 @@ define_sort_intervals_numpy!(sort_intervals_numpy_u16_i16, u16, i16);
 define_sort_intervals_numpy!(sort_intervals_numpy_u8_i64,  u8,  i64);
 define_sort_intervals_numpy!(sort_intervals_numpy_u8_i32,  u8,  i32);
 define_sort_intervals_numpy!(sort_intervals_numpy_u8_i16,  u8,  i16);
+
+define_sort_groups_numpy!(sort_groups_numpy_u64, u64);
+define_sort_groups_numpy!(sort_groups_numpy_u32, u32);
+define_sort_groups_numpy!(sort_groups_numpy_u16, u16);
+define_sort_groups_numpy!(sort_groups_numpy_u8,  u8);

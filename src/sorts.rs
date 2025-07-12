@@ -2,6 +2,7 @@ use radsort::sort_by_key;
 
 use crate::ruranges_structs::Event;
 use crate::ruranges_structs::GenericEvent;
+use crate::ruranges_structs::GroupStruct;
 use crate::ruranges_structs::GroupType;
 use crate::ruranges_structs::Interval;
 use crate::ruranges_structs::MaxEvent;
@@ -261,6 +262,19 @@ pub fn build_sorted_events_single_collection_separate_outputs<C: GroupType, T: P
     sort_by_key(&mut out_pos, |e| e.chr);
 
     out_pos
+}
+
+pub fn build_sorted_groups<C: GroupType>(
+    chrs: &[C],
+) -> Vec<u32> {
+    let mut out: Vec<GroupStruct<C>> = (0..chrs.len())
+    .map(|i| GroupStruct { chr: chrs[i], idx: i as u32 })
+    .collect();
+
+    out.sort_by_key(|e| e.chr);
+
+    // take the chromosome field, cast to u32, collect -----------------------
+    out.into_iter().map(|e| e.idx).collect()
 }
 
 pub fn build_sorted_events_with_starts_ends<C: GroupType, T: PositionType>(

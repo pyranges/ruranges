@@ -14,7 +14,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 
-version = "0.0.10"
+version = "0.0.11"
 
 [tool.maturin]
 module-name = "ruranges"
