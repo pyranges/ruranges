@@ -1,5 +1,5 @@
 import importlib
-from typing import Any, Callable, Literal, TypeVar
+from typing import Any, Callable, Literal, Sequence, TypeVar
 import numpy as np
 from numpy.typing import NDArray
 
@@ -17,6 +17,10 @@ RangeInt = TypeVar("RangeInt", bound=np.integer)
 # dtype-suffix map shared by every operation
 # (group_dtype, range_dtype)  →  (suffix, group_target_dtype, range_target_dtype)
 _SUFFIX_TABLE = {
+    ("u8", None):  (None, "u8", np.uint8),
+    ("u16", None): (None, "u16", np.uint16),
+    ("u32", None): (None, "u32", np.uint32),
+
     (None, np.dtype(np.int8)):  ("i16", None, np.int16),
     (None, np.dtype(np.int16)): ("i16", None, np.int16),
     (None, np.dtype(np.int32)): ("i32", None, np.int32),
@@ -49,6 +53,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "subtract_numpy": ("grp", "pos", "pos"),
     "complement_overlaps_numpy": ("grp",),
     "count_overlaps_numpy": ("count",),
+    "sort_groups_numpy": ("idx",),
     "sort_intervals_numpy": ("idx",),
     "cluster_numpy": ("idx", "count"),
     "max_disjoint_numpy": ("idx",),
@@ -58,6 +63,7 @@ RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "complement_numpy": ("grp", "pos", "pos", "index"),
     "boundary_numpy": ("index", "pos", "pos", "count"),
     "spliced_subsequence_numpy": ("index", "pos", "pos", "_strand"),
+    "spliced_subsequence_multi_numpy": ("index", "pos", "pos", "_strand"),
     "split_numpy": ("index", "pos", "pos"),
     "extend_numpy": ("pos", "pos"),
     "genome_bounds_numpy": ("index", "pos", "pos"),
@@ -407,6 +413,34 @@ def sort_intervals(
         sort_reverse_direction=sort_reverse_direction,
     )
 
+def sort_groups(
+    groups: NDArray[GroupIdInt],
+) -> NDArray[GroupIdInt]:
+    """
+    Return the permutation that sorts groups in order.
+
+    Parameters
+    ----------
+    groups
+        Optional per-row group IDs (chromosomes, contigs, …).  If supplied, the
+        sort is performed *within* each group; otherwise intervals are sorted
+        globally.
+
+    Returns
+    -------
+    perm : NDArray[GroupIdInt]
+        ``uint32`` array whose elements are the indices that sort the input.
+
+    Notes
+    -----
+    *The heavy lifting happens in Rust; this wrapper only dispatches to the
+    correct concrete wrapper based on dtypes.*
+    """
+    return _dispatch_unary(
+        "sort_groups_numpy",  # selects the Rust wrapper
+        groups=groups,
+    )
+
 
 def cluster(
     starts: NDArray[RangeInt],
@@ -708,64 +742,54 @@ def tile(
         tile_size=tile_size,
     )
 
-def spliced_subsequence(
+def _as_vec(x, n: int, dtype) -> NDArray:
+    """Return `x` as a 1-D ndarray of length *n*, repeating scalars if needed."""
+    if np.isscalar(x):
+        return np.full(n, x, dtype=dtype)
+    arr = np.asarray(x, dtype=dtype)
+    if arr.shape != (n,):
+        raise ValueError("vector length mismatch")
+    return arr
+
+
+def spliced_subsequence(                     # same public signature
     *,
     starts: NDArray[RangeInt],
     ends: NDArray[RangeInt],
-    groups: NDArray[GroupIdInt] | None,          # chromosome / transcript IDs
+    groups: NDArray[GroupIdInt] | None,
     strand_flags: NDArray[np.bool_],
-    start: int,
-    end: int | None = None,
+    start: int | NDArray | list[int],
+    end: int | NDArray | list[int] | None = None,
     force_plus_strand: bool = False,
-) -> tuple[
-    NDArray[GroupIdInt],   # indices
-    NDArray[RangeInt],     # new starts
-    NDArray[RangeInt],     # new ends
-]:
-    """
-    Extract a spliced subsequence from exon blocks defined by *(starts, ends)*.
+) -> tuple[NDArray[GroupIdInt], NDArray[RangeInt], NDArray[RangeInt]]:
 
-    The algorithm walks exons in transcription order (5'→3' per strand),
-    accumulating length until the requested `[start, end)` span is covered,
-    and returns the coordinates of the blocks that span that subsequence.
+    n = len(starts)
+    dtype = starts.dtype
+    sentinel = np.iinfo(dtype).max                       # numeric “no-end” marker
 
-    Parameters
-    ----------
-    starts, ends
-        Exon coordinates (`dtype == RangeInt`).
-    groups
-        Optional upper-level IDs (e.g. transcript or chromosome).  If `None`
-        the whole array is treated as a single transcript.
-    strand_flags
-        Boolean array – `True` for negative strand, `False` for positive.
-    start, end
-        0-based positions *within the transcript* (like Python slices).
-        `end=None` ⇒ go to the transcript end.
-    force_plus_strand
-        If `True`, treat all strands as plus (+) regardless of
-        `strand_flags` (useful for DNA motif extraction).
+    slice_starts = _as_vec(start, n, dtype=dtype)
 
-    Returns
-    -------
-    idx, sub_starts, sub_ends
-        *idx* is a ``uint32`` array of the exon rows that contribute to the
-        subsequence; *sub_starts* / *sub_ends* are their trimmed coordinates.
+    if end is None:
+        slice_ends = np.full(n, sentinel, dtype=dtype)
+    else:
+        end_arr = np.asarray(end, dtype=object)
+        if end_arr.shape == ():                         # scalar
+            slice_ends = np.full(n, end_arr.item(), dtype=dtype)
+        else:
+            # replace None with sentinel, then cast once
+            cleaned = [sentinel if v is None else v for v in end_arr]
+            slice_ends = np.asarray(cleaned, dtype=dtype)
 
-    Notes
-    -----
-    The heavy lifting happens in Rust; this wrapper merely dispatches to the
-    correct concrete function based on the dtypes you provide.
-    """
-    return _dispatch_unary(
-        "spliced_subsequence_numpy",
+    return _dispatch_unary(                             # calls Rust wrapper
+        "spliced_subsequence_multi_numpy",
         starts,
         ends,
         groups,
         strand_flags=strand_flags,
-        start=start,
-        end=end,
+        slice_starts=slice_starts,
+        slice_ends=slice_ends,
         force_plus_strand=force_plus_strand,
-    )[0:3]
+    )[:3]
 
 
 def split(

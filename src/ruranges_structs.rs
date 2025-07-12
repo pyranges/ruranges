@@ -78,6 +78,12 @@ pub struct MinEvent<C: GroupType, T: PositionType> {
 }
 
 #[derive(Debug, Clone, Hash)]
+pub struct GroupStruct<C: GroupType> {
+    pub chr: C,
+    pub idx: u32,
+}
+
+#[derive(Debug, Clone, Hash)]
 pub struct OverlapPair {
     pub idx: u32,
     pub idx2: u32,
