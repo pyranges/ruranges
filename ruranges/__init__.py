@@ -664,6 +664,7 @@ def window(
     ends: NDArray[RangeInt],
     negative_strand: NDArray[np.bool_],
     window_size: int,
+    groups: NDArray[GroupIdInt] | None = None,
 ) -> tuple[
     NDArray[GroupIdInt],  # indices
     NDArray[RangeInt],    # windowed starts
@@ -691,7 +692,7 @@ def window(
     # grouping column.
     return _dispatch_unary(
         "window_numpy",          # base name of the Rust wrapper
-        groups=None,                    # groups == None
+        groups = _groups_or_arange(groups, len(starts)),
         starts=starts,
         ends=ends,
         negative_strand=negative_strand,
@@ -704,6 +705,7 @@ def tile(
     ends: NDArray[RangeInt],
     negative_strand: NDArray[np.bool_],
     tile_size: int,
+    groups: NDArray[GroupIdInt] | None = None,
 ) -> tuple[
     NDArray[GroupIdInt],  # indices
     NDArray[RangeInt],    # tile starts
@@ -737,7 +739,7 @@ def tile(
     """
     return _dispatch_unary(
         "tile_numpy",        # base name of the Rust wrapper
-        groups=None,                    # groups == None
+        groups = _groups_or_arange(groups, len(starts)),
         starts=starts,
         ends=ends,
         negative_strand=negative_strand,
@@ -1516,3 +1518,8 @@ def _dispatch_map_global_binary(
     # same logic your cast_kernel_outputs uses
     # roles might be ("grp", "pos", "pos", "strand")
     return cast_kernel_outputs(prefix, raw_out, roles, grp_t, pos_t, grp_orig, pos_orig)
+
+def _groups_or_arange(groups, n, dtype=np.uint8):
+    if groups is None:
+        return np.arange(n, dtype=dtype)
+    return groups
