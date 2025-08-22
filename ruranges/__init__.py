@@ -82,6 +82,7 @@ def overlaps(
     groups2: NDArray[GroupIdInt] | None = None,
     multiple: Literal["first", "all", "last", "contained"] = "all",
     contained: bool = False,
+    sort_output: bool = True,
     slack: int = 0,
 ) -> tuple[GroupIdInt, GroupIdInt]:
     """
@@ -145,6 +146,7 @@ def overlaps(
         slack,
         overlap_type=multiple,
         contained=contained,
+        sort_output=sort_output,
     )
 
 

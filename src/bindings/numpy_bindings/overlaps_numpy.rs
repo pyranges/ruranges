@@ -18,6 +18,7 @@ macro_rules! define_chromsweep_numpy {
             ends2: PyReadonlyArray1<$pos_ty>,
             slack: $pos_ty,
             overlap_type: &str,
+            sort_output: bool,
             contained: bool,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>)> {
             let chrs_slice = chrs.as_slice()?;
@@ -36,6 +37,7 @@ macro_rules! define_chromsweep_numpy {
                 ends_slice2,
                 slack,
                 overlap_type,
+                sort_output,
                 contained,
             );
             Ok((
