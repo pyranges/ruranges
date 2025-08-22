@@ -174,13 +174,30 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(complement_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(complement_numpy_u8_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(window_numpy_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(window_numpy_i32, m)?)?;
-    m.add_function(wrap_pyfunction!(window_numpy_i16, m)?)?;
 
-    m.add_function(wrap_pyfunction!(tile_numpy_i64, m)?)?;
-    m.add_function(wrap_pyfunction!(tile_numpy_i32, m)?)?;
-    m.add_function(wrap_pyfunction!(tile_numpy_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(window_numpy_u8_i16, m)?)?;
+
+
+    m.add_function(wrap_pyfunction!(tile_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(tile_numpy_u8_i16, m)?)?;
+
 
     m.add_function(wrap_pyfunction!(boundary_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(boundary_numpy_u32_i64, m)?)?;

@@ -40,6 +40,7 @@ pub fn overlaps<C: GroupType, T: PositionType>(
     ends2: &[T],
     slack: T,
     overlap_type: &str,
+    sort_output: bool,
     contained: bool,
 ) -> (Vec<u32>, Vec<u32>) {
     let overlap_type = OverlapType::from_str(overlap_type)
@@ -54,7 +55,9 @@ pub fn overlaps<C: GroupType, T: PositionType>(
         sweep_line_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack)
     };
 
-    sort_by_key(&mut pairs,|p| p.idx);
+    if sort_output || (overlap_type == OverlapType::First || overlap_type == OverlapType::Last) {
+        sort_by_key(&mut pairs,|p| p.idx);
+    }
 
     match overlap_type {
         OverlapType::All => {},
