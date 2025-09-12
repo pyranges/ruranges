@@ -705,7 +705,6 @@ def tile(
     ends: NDArray[RangeInt],
     negative_strand: NDArray[np.bool_],
     tile_size: int,
-    groups: NDArray[GroupIdInt] | None = None,
 ) -> tuple[
     NDArray[GroupIdInt],  # indices
     NDArray[RangeInt],    # tile starts
@@ -739,7 +738,7 @@ def tile(
     """
     return _dispatch_unary(
         "tile_numpy",        # base name of the Rust wrapper
-        groups = _groups_or_arange(groups, len(starts)),
+        groups = None,
         starts=starts,
         ends=ends,
         negative_strand=negative_strand,
