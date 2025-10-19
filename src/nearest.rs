@@ -126,7 +126,7 @@ pub fn nearest_intervals_to_the_left<C: GroupType, T: PositionType>(
             if start.chr < end_chr {
                 // still a smaller chromosome => definitely to the left
                 j += 1;
-            } else if start.chr == end_chr && start.pos < end_pos {
+            } else if start.chr == end_chr && start.pos <= end_pos {
                 // same chrom, smaller position => to the left
                 j += 1;
             } else {
