@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
 use bindings::numpy_bindings::overlaps_numpy::*;
+use bindings::numpy_bindings::overlaps_simple_numpy::*;
 use bindings::numpy_bindings::nearest_numpy::*;
 use bindings::numpy_bindings::subtract_numpy::*;
 use bindings::numpy_bindings::complement_overlaps_numpy::*;
@@ -74,6 +75,17 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i64, m)?)?;
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i32, m)?)?;
     m.add_function(wrap_pyfunction!(chromsweep_numpy_u8_i16, m)?)?;
+
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u64_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u32_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u32_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u32_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u16_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u16_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u16_i16, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u8_i64, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u8_i32, m)?)?;
+    m.add_function(wrap_pyfunction!(sweepline_numpy_u8_i16, m)?)?;
 
     m.add_function(wrap_pyfunction!(nearest_numpy_u64_i64, m)?)?;
     m.add_function(wrap_pyfunction!(nearest_numpy_u32_i64, m)?)?;
