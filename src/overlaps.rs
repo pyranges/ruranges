@@ -56,7 +56,7 @@ pub fn overlaps<C: GroupType, T: PositionType>(
     };
 
     if sort_output || (overlap_type == OverlapType::First || overlap_type == OverlapType::Last) {
-        sort_by_key(&mut pairs,|p| p.idx);
+        sort_by_key(&mut pairs, |p| p.idx);
     }
 
     match overlap_type {

@@ -49,6 +49,7 @@ _SUFFIX_TABLE = {
 
 RETURN_SIGNATURES: dict[str, tuple[str, ...]] = {
     "chromsweep_numpy": ("grp", "grp"),
+    "sweepline_numpy": ("grp", "grp"),
     "nearest_numpy": ("grp", "grp", "pos"),
     "subtract_numpy": ("grp", "pos", "pos"),
     "complement_overlaps_numpy": ("grp",),
@@ -149,6 +150,105 @@ def overlaps(
         sort_output=sort_output,
     )
 
+def overlaps_simple(
+    *,
+    starts: NDArray[RangeInt],
+    ends: NDArray[RangeInt],
+    starts2: NDArray[RangeInt],
+    ends2: NDArray[RangeInt],
+    groups: NDArray[GroupIdInt] | None = None,
+    groups2: NDArray[GroupIdInt] | None = None,
+    multiple: Literal["first", "all", "last", "contained"] = "all",
+    contained: bool = False,
+    sort_output: bool = True,
+    slack: int = 0,
+    _no_checks: bool = False,
+) -> tuple[GroupIdInt, GroupIdInt]:
+    """
+    Examples
+    --------
+    Without groups:
+
+    >>> import numpy as np
+    >>> from numpy.typing import NDArray
+    >>> RangeInt = np.int32
+    >>> GroupIdInt = np.uint32
+
+    Multiple overlaps with deterministic ordering:
+
+    >>> starts  = np.array([0, 10, 20], dtype=RangeInt)
+    >>> ends    = np.array([100, 12, 25], dtype=RangeInt)
+    >>> starts2 = np.array([1, 5, 11, 24, 99], dtype=RangeInt)
+    >>> ends2   = np.array([2, 8, 13, 30, 101], dtype=RangeInt)
+    >>> idx1, idx2 = overlaps_simple(starts=starts, ends=ends, starts2=starts2, ends2=ends2)
+    >>> idx1
+    array([0, 0, 0, 0, 0, 1, 2], dtype=uint32)
+    >>> idx2
+    array([0, 1, 2, 3, 4, 2, 3], dtype=uint32)
+
+    Half-open boundary behavior (touching at a point does not overlap):
+
+    >>> starts  = np.array([0, 5], dtype=RangeInt)
+    >>> ends    = np.array([5, 10], dtype=RangeInt)
+    >>> starts2 = np.array([5, 10], dtype=RangeInt)
+    >>> ends2   = np.array([6, 11], dtype=RangeInt)
+    >>> overlaps_simple(starts=starts, ends=ends, starts2=starts2, ends2=ends2)
+    (array([1], dtype=uint32), array([0], dtype=uint32))
+
+    Slack can turn a gap into an overlap:
+
+    >>> starts  = np.array([0], dtype=RangeInt)
+    >>> ends    = np.array([5], dtype=RangeInt)
+    >>> starts2 = np.array([6], dtype=RangeInt)
+    >>> ends2   = np.array([7], dtype=RangeInt)
+    >>> overlaps_simple(starts=starts, ends=ends, starts2=starts2, ends2=ends2, slack=0)
+    (array([], dtype=uint32), array([], dtype=uint32))
+    >>> overlaps_simple(starts=starts, ends=ends, starts2=starts2, ends2=ends2, slack=2)
+    (array([0], dtype=uint32), array([0], dtype=uint32))
+
+    With groups:
+
+    Group-restricted overlaps across multiple groups:
+
+    >>> starts  = np.array([0, 10, 0, 10], dtype=RangeInt)
+    >>> ends    = np.array([5, 15, 5, 15], dtype=RangeInt)
+    >>> groups  = np.array([1, 1, 2, 2], dtype=GroupIdInt)
+    >>> starts2 = np.array([3, 12, 3, 12], dtype=RangeInt)
+    >>> ends2   = np.array([4, 13, 4, 13], dtype=RangeInt)
+    >>> groups2 = np.array([1, 1, 2, 2], dtype=GroupIdInt)
+    >>> idx1, idx2 = overlaps_simple(
+    ...     starts=starts, ends=ends,
+    ...     starts2=starts2, ends2=ends2,
+    ...     groups=groups, groups2=groups2
+    ... )
+    >>> idx1
+    array([0, 1, 2, 3], dtype=uint32)
+    >>> idx2
+    array([0, 1, 2, 3], dtype=uint32)
+
+    Empty inputs are allowed:
+
+    >>> starts  = np.array([], dtype=RangeInt)
+    >>> ends    = np.array([], dtype=RangeInt)
+    >>> starts2 = np.array([0, 1], dtype=RangeInt)
+    >>> ends2   = np.array([2, 3], dtype=RangeInt)
+    >>> overlaps_simple(starts=starts, ends=ends, starts2=starts2, ends2=ends2)
+    (array([], dtype=uint32), array([], dtype=uint32))
+    """
+
+    return _dispatch_binary(
+        "sweepline_numpy",
+        groups,
+        starts,
+        ends,
+        groups2,
+        starts2,
+        ends2,
+        slack,
+        overlap_type=multiple,
+        contained=contained,
+        no_checks=_no_checks,
+    )
 
 def map_to_global(
     *,
