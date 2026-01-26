@@ -18,9 +18,14 @@ pub fn build_intervals<C: GroupType, T: PositionType>(
     sort_reverse_direction: Option<&[bool]>,
     slack: T,
 ) -> Vec<Interval<C, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+
     let mut intervals = Vec::with_capacity(chrs.len());
     match sort_reverse_direction {
         Some(reverse) => {
+            assert_eq!(chrs.len(), reverse.len(), "chrs and sort_reverse_direction must have same length");
+
             for i in 0..chrs.len() {
                 intervals.push(Interval {
                     group: chrs[i],
@@ -59,6 +64,10 @@ pub fn build_subsequence_intervals<G: GroupType, T: PositionType>(
     ends: &[T],
     strand_flags: &[bool],
 ) -> Vec<SplicedSubsequenceInterval<G, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+    assert_eq!(chrs.len(), strand_flags.len(), "chrs and strand_flags must have same length");
+
     let mut intervals = Vec::with_capacity(chrs.len());
     for i in 0..chrs.len() {
         intervals.push(SplicedSubsequenceInterval {
@@ -87,6 +96,11 @@ pub fn build_sequence_intervals(
     strand_flags: &[bool],
     force_plus_strand: bool,
 ) -> Vec<SubsequenceInterval> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+    assert_eq!(chrs.len(), idxs.len(), "chrs and idxs must have same length");
+    assert_eq!(chrs.len(), strand_flags.len(), "chrs and strand_flags must have same length");
+
     let mut intervals: Vec<SubsequenceInterval> = Vec::with_capacity(chrs.len());
     for i in 0..chrs.len() {
         intervals.push(SubsequenceInterval {
@@ -181,6 +195,8 @@ pub fn build_sorted_events_single_position<C: GroupType, T: PositionType>(
     negative_position: bool,
     slack: T,
 ) -> Vec<Event<C, T>> {
+    assert_eq!(chrs.len(), pos.len(), "chrs and pos must have same length");
+
     let mut events = Vec::with_capacity(2 * (chrs.len()));
 
     // Convert set1 intervals into events
@@ -210,6 +226,9 @@ pub fn build_sorted_events_single_collection<C: GroupType, T: PositionType>(
     ends: &[T],
     slack: T,
 ) -> Vec<Event<C, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+
     let mut events = Vec::with_capacity(2 * (chrs.len()));
 
     // Convert set1 intervals into events
@@ -247,6 +266,8 @@ pub fn build_sorted_events_single_collection_separate_outputs<C: GroupType, T: P
     pos: &[T],
     slack: T,
 ) -> Vec<MinEvent<C, T>> {
+    assert_eq!(chrs.len(), pos.len(), "chrs and pos must have same length");
+
     let mut out_pos: Vec<MinEvent<C, T>> = Vec::with_capacity(chrs.len());
 
     // Convert set1 intervals into events
@@ -282,6 +303,8 @@ pub fn build_sorted_events_with_starts_ends<C: GroupType, T: PositionType>(
     pos: &[T],
     slack: T,
 ) -> Vec<MinEvent<C, T>> {
+    assert_eq!(chrs.len(), pos.len(), "chrs and pos must have same length");
+
     let mut out_pos = Vec::with_capacity(chrs.len());
 
     // Convert set1 intervals into events
@@ -308,6 +331,12 @@ pub fn build_sorted_events<C: GroupType, T: PositionType>(
     ends2: &[T],
     slack: T,
 ) -> Vec<GenericEvent<C, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+
+    assert_eq!(chrs2.len(), starts2.len(), "chrs2 and starts2 must have same length");
+    assert_eq!(chrs2.len(), ends2.len(), "chrs2 and ends2 must have same length");
+
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
@@ -365,6 +394,12 @@ pub fn build_sorted_maxevents_with_starts_ends<C: GroupType, T: PositionType>(
     ends2: &[T],
     slack: T,
 ) -> Vec<MaxEvent<C, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+
+    assert_eq!(chrs2.len(), starts2.len(), "chrs2 and starts2 must have same length");
+    assert_eq!(chrs2.len(), ends2.len(), "chrs2 and ends2 must have same length");
+
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
@@ -426,6 +461,12 @@ pub fn build_sorted_events_idxs<C: GroupType, T: PositionType>(
     ends2: &[T],
     slack: T,
 ) -> Vec<Event<C, T>> {
+    assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
+    assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
+
+    assert_eq!(chrs2.len(), starts2.len(), "chrs2 and starts2 must have same length");
+    assert_eq!(chrs2.len(), ends2.len(), "chrs2 and ends2 must have same length");
+
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
