@@ -26,29 +26,30 @@ pub fn build_intervals<C: GroupType, T: PositionType>(
         Some(reverse) => {
             assert_eq!(chrs.len(), reverse.len(), "chrs and sort_reverse_direction must have same length");
 
-            for i in 0..chrs.len() {
+            for (i, (((&chr, &start), &end), &rev)) in chrs.iter()
+                .zip(starts)
+                .zip(ends)
+                .zip(reverse)
+                .enumerate()
+            {
                 intervals.push(Interval {
-                    group: chrs[i],
-                    start: if reverse[i] {
-                        -(starts[i] - slack)
-                    } else {
-                        starts[i] - slack
-                    },
-                    end: if reverse[i] {
-                        -(ends[i] + slack)
-                    } else {
-                        ends[i] + slack
-                    },
+                    group: chr,
+                    start: if rev { -(start - slack) } else { start - slack },
+                    end: if rev { -(end + slack) } else { end + slack },
                     idx: i as u32,
                 });
             }
         }
         None => {
-            for i in 0..chrs.len() {
+            for (i, ((&chr, &start), &end)) in chrs.iter()
+                .zip(starts)
+                .zip(ends)
+                .enumerate()
+            {
                 intervals.push(Interval {
-                    group: chrs[i],
-                    start: starts[i] - slack,
-                    end: ends[i] + slack,
+                    group: chr,
+                    start: start - slack,
+                    end: end + slack,
                     idx: i as u32,
                 });
             }
@@ -69,17 +70,21 @@ pub fn build_subsequence_intervals<G: GroupType, T: PositionType>(
     assert_eq!(chrs.len(), strand_flags.len(), "chrs and strand_flags must have same length");
 
     let mut intervals = Vec::with_capacity(chrs.len());
-    for i in 0..chrs.len() {
+    for (i, (((&chr, &start), &end), &forward)) in chrs.iter()
+        .zip(starts)
+        .zip(ends)
+        .zip(strand_flags)
+        .enumerate()
+    {
         intervals.push(SplicedSubsequenceInterval {
-            chr: chrs[i],
-            start: if strand_flags[i] {
-                starts[i]
-            } else {
-                -starts[i]
-            }, // so that negative strand intervals are sorted in the correct direction
-            end: if strand_flags[i] { ends[i] } else { -ends[i] }, // we will find the absolute value when using them
+            chr: chr,
+            // Make start and end negative for intervals on negative strand
+            // so they get sorted in the correct direction.
+            // Later on the absolute value will be used.
+            start: if forward { start } else { -start },
+            end: if forward { end } else { -end },
             idx: i as u32,
-            forward_strand: strand_flags[i],
+            forward_strand: forward,
             temp_cumsum: T::zero(),
             temp_length: T::zero(),
         });
@@ -102,21 +107,21 @@ pub fn build_sequence_intervals(
     assert_eq!(chrs.len(), strand_flags.len(), "chrs and strand_flags must have same length");
 
     let mut intervals: Vec<SubsequenceInterval> = Vec::with_capacity(chrs.len());
-    for i in 0..chrs.len() {
+    for ((((&chr, &start), &end), &idx), &forward) in chrs.iter()
+        .zip(starts)
+        .zip(ends)
+        .zip(idxs)
+        .zip(strand_flags)
+    {
         intervals.push(SubsequenceInterval {
-            group_id: chrs[i],
-            start: if force_plus_strand || strand_flags[i] {
-                starts[i]
-            } else {
-                -starts[i]
-            }, // so that negative strand intervals are sorted in the correct direction
-            end: if force_plus_strand || strand_flags[i] {
-                ends[i]
-            } else {
-                -ends[i]
-            }, // we will find the absolute value when using them
-            idx: idxs[i],
-            forward_strand: strand_flags[i],
+            group_id: chr,
+            // Make start and end negative for intervals on negative strand
+            // so they get sorted in the correct direction.
+            // Later on the absolute value will be used.
+            start: if force_plus_strand || forward { start } else { -start },
+            end: if force_plus_strand || forward { end } else { -end },
+            idx: idx,
+            forward_strand: forward,
         });
     }
 
@@ -197,18 +202,14 @@ pub fn build_sorted_events_single_position<C: GroupType, T: PositionType>(
 ) -> Vec<Event<C, T>> {
     assert_eq!(chrs.len(), pos.len(), "chrs and pos must have same length");
 
-    let mut events = Vec::with_capacity(2 * (chrs.len()));
+    let mut events = Vec::with_capacity(chrs.len());
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
-        let pos = if start {
-            pos[i] - slack
-        } else {
-            pos[i] + slack
-        };
+    for (i, (&chr, &p)) in chrs.iter().zip(pos).enumerate() {
+        let position = if start { p - slack } else { p + slack };
         events.push(Event {
-            chr: chrs[i],
-            pos: if negative_position { -pos } else { pos },
+            chr: chr,
+            pos: if negative_position { -position } else { position },
             is_start: start,
             first_set: first_set,
             idx: i as u32,
@@ -229,20 +230,20 @@ pub fn build_sorted_events_single_collection<C: GroupType, T: PositionType>(
     assert_eq!(chrs.len(), starts.len(), "chrs and starts must have same length");
     assert_eq!(chrs.len(), ends.len(), "chrs and ends must have same length");
 
-    let mut events = Vec::with_capacity(2 * (chrs.len()));
+    let mut events = Vec::with_capacity(2 * chrs.len());
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, ((&chr, &start), &end)) in chrs.iter().zip(starts).zip(ends).enumerate() {
         events.push(Event {
-            chr: chrs[i],
-            pos: starts[i],
+            chr: chr,
+            pos: start,
             is_start: true,
             first_set: true,
             idx: i as u32,
         });
         events.push(Event {
-            chr: chrs[i],
-            pos: ends[i] + slack,
+            chr: chr,
+            pos: end + slack,
             is_start: false,
             first_set: true,
             idx: i as u32,
@@ -271,10 +272,10 @@ pub fn build_sorted_events_single_collection_separate_outputs<C: GroupType, T: P
     let mut out_pos: Vec<MinEvent<C, T>> = Vec::with_capacity(chrs.len());
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, (&chr, &p)) in chrs.iter().zip(pos).enumerate() {
         out_pos.push(MinEvent {
-            chr: chrs[i],
-            pos: pos[i] - slack,
+            chr: chr,
+            pos: p - slack,
             idx: i as u32,
         });
     }
@@ -288,9 +289,10 @@ pub fn build_sorted_events_single_collection_separate_outputs<C: GroupType, T: P
 pub fn build_sorted_groups<C: GroupType>(
     chrs: &[C],
 ) -> Vec<u32> {
-    let mut out: Vec<GroupStruct<C>> = (0..chrs.len())
-    .map(|i| GroupStruct { chr: chrs[i], idx: i as u32 })
-    .collect();
+    let mut out: Vec<GroupStruct<C>> = chrs.iter()
+        .enumerate()
+        .map(|(i, &chr)| GroupStruct { chr, idx: i as u32 })
+        .collect();
 
     out.sort_by_key(|e| e.chr);
 
@@ -308,10 +310,10 @@ pub fn build_sorted_events_with_starts_ends<C: GroupType, T: PositionType>(
     let mut out_pos = Vec::with_capacity(chrs.len());
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, (&chr, &p)) in chrs.iter().zip(pos).enumerate() {
         out_pos.push(MinEvent {
-            chr: chrs[i],
-            pos: pos[i] - slack,
+            chr: chr,
+            pos: p - slack,
             idx: i as u32,
         });
     }
@@ -340,38 +342,34 @@ pub fn build_sorted_events<C: GroupType, T: PositionType>(
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, ((&chr, &start), &end)) in chrs.iter().zip(starts).zip(ends).enumerate() {
         events.push(GenericEvent {
-            chr: chrs[i],
-            pos: if slack < starts[i] {
-                starts[i] - slack
-            } else {
-                T::zero()
-            },
+            chr: chr,
+            pos: if slack < start { start - slack } else { T::zero() },
             is_start: true,
             first_set: true,
             idx: i as u32,
         });
         events.push(GenericEvent {
-            chr: chrs[i],
-            pos: ends[i].saturating_add(slack),
+            chr: chr,
+            pos: end.saturating_add(slack),
             is_start: false,
             first_set: true,
             idx: i as u32,
         });
     }
 
-    for j in 0..chrs2.len() {
+    for (j, ((&chr2, &start2), &end2)) in chrs2.iter().zip(starts2).zip(ends2).enumerate() {
         events.push(GenericEvent {
-            chr: chrs2[j],
-            pos: starts2[j],
+            chr: chr2,
+            pos: start2,
             is_start: true,
             first_set: false,
             idx: j as u32,
         });
         events.push(GenericEvent {
-            chr: chrs2[j],
-            pos: ends2[j],
+            chr: chr2,
+            pos: end2,
             is_start: false,
             first_set: false,
             idx: j as u32,
@@ -403,42 +401,45 @@ pub fn build_sorted_maxevents_with_starts_ends<C: GroupType, T: PositionType>(
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, ((&chr, &start), &end)) in chrs.iter().zip(starts).zip(ends).enumerate() {
+        let start_slack = start - slack;
+        let end_slack = end + slack;
+
         events.push(MaxEvent {
-            chr: chrs[i],
-            pos: starts[i] - slack,
-            start: starts[i] - slack,
-            end: ends[i] + slack,
+            chr: chr,
+            pos: start_slack,
+            start: start_slack,
+            end: end_slack,
             is_start: true,
             first_set: true,
             idx: i as u32,
         });
         events.push(MaxEvent {
-            chr: chrs[i],
-            pos: ends[i] + slack,
-            end: ends[i] + slack,
-            start: starts[i] - slack,
+            chr: chr,
+            pos: end_slack,
+            end: end_slack,
+            start: start_slack,
             is_start: false,
             first_set: true,
             idx: i as u32,
         });
     }
 
-    for i in 0..chrs2.len() {
+    for (i, ((&chr2, &start2), &end2)) in chrs2.iter().zip(starts2).zip(ends2).enumerate() {
         events.push(MaxEvent {
-            chr: chrs2[i],
-            pos: starts2[i],
-            start: starts2[i],
-            end: ends2[i],
+            chr: chr2,
+            pos: start2,
+            start: start2,
+            end: end2,
             is_start: true,
             first_set: false,
             idx: i as u32,
         });
         events.push(MaxEvent {
-            chr: chrs2[i],
-            pos: ends2[i],
-            start: starts2[i],
-            end: ends2[i],
+            chr: chr2,
+            pos: end2,
+            start: start2,
+            end: end2,
             is_start: false,
             first_set: false,
             idx: i as u32,
@@ -470,34 +471,34 @@ pub fn build_sorted_events_idxs<C: GroupType, T: PositionType>(
     let mut events = Vec::with_capacity(2 * (chrs.len() + chrs2.len()));
 
     // Convert set1 intervals into events
-    for i in 0..chrs.len() {
+    for (i, ((&chr, &start), &end)) in chrs.iter().zip(starts).zip(ends).enumerate() {
         events.push(Event {
-            chr: chrs[i],
-            pos: starts[i] - slack,
+            chr: chr,
+            pos: start - slack,
             is_start: true,
             first_set: true,
             idx: i as u32,
         });
         events.push(Event {
-            chr: chrs[i],
-            pos: ends[i] + slack,
+            chr: chr,
+            pos: end + slack,
             is_start: false,
             first_set: true,
             idx: i as u32,
         });
     }
 
-    for j in 0..chrs2.len() {
+    for (j, ((&chr2, &start2), &end2)) in chrs2.iter().zip(starts2).zip(ends2).enumerate() {
         events.push(Event {
-            chr: chrs2[j],
-            pos: starts2[j],
+            chr: chr2,
+            pos: start2,
             is_start: true,
             first_set: false,
             idx: j as u32,
         });
         events.push(Event {
-            chr: chrs2[j],
-            pos: ends2[j],
+            chr: chr2,
+            pos: end2,
             is_start: false,
             first_set: false,
             idx: j as u32,
