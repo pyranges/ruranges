@@ -1,6 +1,6 @@
 [package]
 name = "ruranges"
-version = "0.1.0"
+version = "0.0.15"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,11 +10,11 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 radsort = "0.1.1"
-rustc-hash = "2.1.0"
+rustc-hash = "2.1.1"
 num-traits = "0.2.19"
 
-pyo3 = { version = "0.26.0", features = ["extension-module"], optional = false }
-numpy = { version = "0.26.0", optional = false }
+pyo3 = { version = "0.27.2", features = ["extension-module", "abi3-py310"], optional = false }
+numpy = { version = "0.27.1", optional = false }
 
 # polars = { version = "0.46.0", features = ["csv", "lazy", "dtype-categorical"], optional = false}
 # rust-htslib = { version = "0.49.0", optional = false}
