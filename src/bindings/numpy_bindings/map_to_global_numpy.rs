@@ -18,19 +18,19 @@ macro_rules! define_map_to_global_numpy {
     ($fname:ident, $code_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                            ex_tx,
-                                            ex_local_start,
-                                            ex_local_end,
-                                            q_tx,
-                                            q_start,
-                                            q_end,
-                                            ex_chr_code,
-                                            ex_genome_start,
-                                            ex_genome_end,
-                                            ex_fwd,
-                                            q_fwd,
-                                            sort_output = true
-                                        ))]
+            ex_tx,
+            ex_local_start,
+            ex_local_end,
+            q_tx,
+            q_start,
+            q_end,
+            ex_chr_code,
+            ex_genome_start,
+            ex_genome_end,
+            ex_fwd,
+            q_fwd,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname<'py>(
             py: Python<'py>,

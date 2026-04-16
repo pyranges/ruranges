@@ -7,14 +7,14 @@ macro_rules! define_subtract_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                            chrs,
-                                            starts,
-                                            ends,
-                                            chrs2,
-                                            starts2,
-                                            ends2,
-                                            sort_output = true
-                                        ))]
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
