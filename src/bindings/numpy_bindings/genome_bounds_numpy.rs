@@ -8,13 +8,13 @@ macro_rules! define_genome_bounds_numpy {
     ($fname:ident, $grp_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature=(
-                                    groups,
-                                    starts,
-                                    ends,
-                                    chrom_lengths,     //  <-- single vector, same length as rows
-                                    clip = false,
-                                    only_right = false
-                                ))]
+                                            groups,
+                                            starts,
+                                            ends,
+                                            chrom_lengths,     //  <-- single vector, same length as rows
+                                            clip = false,
+                                            only_right = false
+                                        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             groups: PyReadonlyArray1<$grp_ty>,

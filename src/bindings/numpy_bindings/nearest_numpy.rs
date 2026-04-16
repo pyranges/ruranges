@@ -7,13 +7,18 @@ macro_rules! define_nearest_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    chrs, starts, ends,
-                                    chrs2, starts2, ends2,
-                                    slack = 0,                // <$pos_ty>::from(0) at call-site
-                                    k = 1,
-                                    include_overlaps = true,
-                                    direction = "any"
-                                ))]
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            slack = 0, // <$pos_ty>::from(0) at call-site
+            k = 1,
+            include_overlaps = true,
+            direction = "any",
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -27,6 +32,7 @@ macro_rules! define_nearest_numpy {
             k: usize,
             include_overlaps: bool,
             direction: &str,
+            sort_output: bool,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>, Py<PyArray1<$pos_ty>>)> {
             let (idx1, idx2, dist) = nearest(
                 chrs.as_slice()?,
@@ -39,6 +45,7 @@ macro_rules! define_nearest_numpy {
                 k,
                 include_overlaps,
                 direction,
+                sort_output,
             );
 
             Ok((

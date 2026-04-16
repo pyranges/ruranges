@@ -7,12 +7,12 @@ macro_rules! define_cumsum_numpy {
     ($fname:ident, $grp_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    groups,
-                                    starts,
-                                    ends,
-                                    negative_strand = None,
-                                    sort = true,
-                                ))]
+                                            groups,
+                                            starts,
+                                            ends,
+                                            negative_strand = None,
+                                            sort = true,
+                                        ))]
         pub fn $fname(
             groups: PyReadonlyArray1<$grp_ty>,
             starts: PyReadonlyArray1<$pos_ty>,

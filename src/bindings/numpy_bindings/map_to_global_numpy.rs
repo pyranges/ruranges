@@ -17,6 +17,20 @@ use ruranges_core::map_to_global::map_to_global; // core algorithm
 macro_rules! define_map_to_global_numpy {
     ($fname:ident, $code_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
+        #[pyo3(signature = (
+            ex_tx,
+            ex_local_start,
+            ex_local_end,
+            q_tx,
+            q_start,
+            q_end,
+            ex_chr_code,
+            ex_genome_start,
+            ex_genome_end,
+            ex_fwd,
+            q_fwd,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname<'py>(
             py: Python<'py>,
@@ -34,6 +48,7 @@ macro_rules! define_map_to_global_numpy {
             ex_genome_end: PyReadonlyArray1<$pos_ty>,
             ex_fwd: PyReadonlyArray1<bool>,
             q_fwd: PyReadonlyArray1<bool>,
+            sort_output: bool,
         ) -> PyResult<(
             Py<PyArray1<u32>>,     // indices back into query table
             Py<PyArray1<$pos_ty>>, // genomic start
@@ -55,6 +70,7 @@ macro_rules! define_map_to_global_numpy {
                 ex_genome_end.as_slice()?,
                 ex_fwd.as_slice()?,
                 q_fwd.as_slice()?,
+                sort_output,
             );
 
             Ok((

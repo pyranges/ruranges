@@ -6,6 +6,15 @@ use ruranges_core::subtract::sweep_line_subtract;
 macro_rules! define_subtract_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
+        #[pyo3(signature = (
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -15,6 +24,7 @@ macro_rules! define_subtract_numpy {
             chrs2: PyReadonlyArray1<$chr_ty>,
             starts2: PyReadonlyArray1<$pos_ty>,
             ends2: PyReadonlyArray1<$pos_ty>,
+            sort_output: bool,
         ) -> PyResult<(
             Py<PyArray1<u32>>,
             Py<PyArray1<$pos_ty>>,
@@ -27,6 +37,7 @@ macro_rules! define_subtract_numpy {
                 chrs2.as_slice()?,
                 starts2.as_slice()?,
                 ends2.as_slice()?,
+                sort_output,
             );
 
             Ok((

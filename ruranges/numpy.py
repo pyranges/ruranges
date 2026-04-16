@@ -142,6 +142,7 @@ def map_to_global(
     genome_start2: NDArray[RangeInt],
     genome_end2:   NDArray[RangeInt],
     strand2:   NDArray[np.bool_],
+    sort_output: bool = True,
 ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
     """
     Vectorised transcript-to-genome projection.
@@ -164,6 +165,7 @@ def map_to_global(
         groups,  starts,  ends,  strand,
         groups2, starts2, ends2, strand2,
         chr_code2, genome_start2, genome_end2,
+        sort_output=sort_output,
     )
 
 
@@ -179,6 +181,7 @@ def nearest(
     k: int = 1,
     include_overlaps: bool = True,
     direction: Literal["forward", "backward", "any"] = "any",
+    sort_output: bool = True,
 ) -> tuple[NDArray[GroupIdInt], NDArray[GroupIdInt], NDArray[RangeInt]]:
     """
     Find the *k* nearest intervals from *(starts2, ends2)* for every interval
@@ -230,6 +233,7 @@ def nearest(
         k=k,
         include_overlaps=include_overlaps,
         direction=direction,
+        sort_output=sort_output,
     )
 
 
@@ -240,6 +244,7 @@ def subtract(
     ends2: NDArray[RangeInt],
     groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
+    sort_output: bool = True,
 ) -> tuple[NDArray[GroupIdInt], NDArray[RangeInt], NDArray[RangeInt]]:
     return _dispatch_binary(
         "subtract_numpy",
@@ -249,6 +254,7 @@ def subtract(
         groups2,
         starts2,
         ends2,
+        sort_output=sort_output,
     )
 
 
@@ -261,6 +267,7 @@ def complement_overlaps(
     groups: NDArray[GroupIdInt] | None = None,
     groups2: NDArray[GroupIdInt] | None = None,
     slack: int = 0,
+    sort_output: bool = True,
 ) -> NDArray[GroupIdInt]:
     """
     Return the indices of intervals in *(starts, ends)* that **do not** overlap
@@ -305,6 +312,7 @@ def complement_overlaps(
         starts2,
         ends2,
         slack,
+        sort_output=sort_output,
     )
 
 
@@ -500,6 +508,7 @@ def max_disjoint(
     ends:   NDArray[RangeInt],
     groups: NDArray[GroupIdInt] | None = None,
     slack:  int = 0,
+    sort_output: bool = True,
 ) -> NDArray[GroupIdInt]:
     """
     Select a *maximum* subset of mutually non-overlapping intervals.
@@ -532,6 +541,7 @@ def max_disjoint(
         starts=starts,
         ends=ends,
         slack=slack,
+        sort_output=sort_output,
     )
 
 
@@ -738,6 +748,7 @@ def spliced_subsequence(                     # same public signature
     start: int | NDArray | list[int],
     end: int | NDArray | list[int] | None = None,
     force_plus_strand: bool = False,
+    sort_output: bool = True,
 ) -> tuple[NDArray[GroupIdInt], NDArray[RangeInt], NDArray[RangeInt]]:
 
     n = len(starts)
@@ -766,6 +777,7 @@ def spliced_subsequence(                     # same public signature
         slice_starts=slice_starts,
         slice_ends=slice_ends,
         force_plus_strand=force_plus_strand,
+        sort_output=sort_output,
     )[:3]
 
 
@@ -1422,7 +1434,6 @@ def _dispatch_map_global_binary(
     ex_chr_code, ex_genome_start, ex_genome_end,
     **extra_kw
 ):
-    del extra_kw
     roles = RETURN_SIGNATURES[prefix]
     ex_start = _as_1d_array(ex_local_start, name="starts")
     ex_end = _as_1d_array(ex_local_end, name="ends")
@@ -1486,6 +1497,7 @@ def _dispatch_map_global_binary(
         ex_genome_end_u,
         ex_fwd_arr.astype(np.bool_, copy=False),
         q_fwd_arr.astype(np.bool_, copy=False),
+        **extra_kw,
     )
     return _restore_outputs(prefix, raw, roles, grp_orig=grp_orig, pos_orig=pos_orig)
 

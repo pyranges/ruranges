@@ -6,6 +6,16 @@ use ruranges_core::complement::sweep_line_non_overlaps;
 macro_rules! define_complement_overlaps_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
+        #[pyo3(signature = (
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            slack = 0,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -16,6 +26,7 @@ macro_rules! define_complement_overlaps_numpy {
             starts2: PyReadonlyArray1<$pos_ty>,
             ends2: PyReadonlyArray1<$pos_ty>,
             slack: $pos_ty,
+            sort_output: bool,
         ) -> PyResult<Py<PyArray1<u32>>> {
             let idx = sweep_line_non_overlaps(
                 chrs.as_slice()?,
@@ -25,6 +36,7 @@ macro_rules! define_complement_overlaps_numpy {
                 starts2.as_slice()?,
                 ends2.as_slice()?,
                 slack,
+                sort_output,
             );
             Ok(idx.into_pyarray(py).to_owned().into())
         }

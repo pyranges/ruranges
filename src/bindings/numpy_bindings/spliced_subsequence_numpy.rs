@@ -10,14 +10,15 @@ macro_rules! define_spliced_subsequence_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    chrs,
-                                    starts,
-                                    ends,
-                                    strand_flags,
-                                    start,
-                                    end     = None,
-                                    force_plus_strand = false
-                                ))]
+            chrs,
+            starts,
+            ends,
+            strand_flags,
+            start,
+            end = None,
+            force_plus_strand = false,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             chrs: PyReadonlyArray1<$chr_ty>,
@@ -27,6 +28,7 @@ macro_rules! define_spliced_subsequence_numpy {
             start: $pos_ty,
             end: Option<$pos_ty>,
             force_plus_strand: bool,
+            sort_output: bool,
             py: Python<'_>,
         ) -> PyResult<(
             Py<PyArray1<u32>>,     // indices
@@ -42,6 +44,7 @@ macro_rules! define_spliced_subsequence_numpy {
                 start,
                 end,
                 force_plus_strand,
+                sort_output,
             );
 
             Ok((
@@ -62,14 +65,15 @@ macro_rules! define_spliced_subsequence_multi_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    chrs,
-                                    starts,
-                                    ends,
-                                    strand_flags,
-                                    slice_starts,
-                                    slice_ends,
-                                    force_plus_strand = false
-                                ))]
+            chrs,
+            starts,
+            ends,
+            strand_flags,
+            slice_starts,
+            slice_ends,
+            force_plus_strand = false,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             chrs: PyReadonlyArray1<$chr_ty>,
@@ -79,6 +83,7 @@ macro_rules! define_spliced_subsequence_multi_numpy {
             slice_starts: PyReadonlyArray1<$pos_ty>,
             slice_ends: PyReadonlyArray1<$pos_ty>,
             force_plus_strand: bool,
+            sort_output: bool,
             py: Python<'_>,
         ) -> PyResult<(
             Py<PyArray1<u32>>,
@@ -97,6 +102,7 @@ macro_rules! define_spliced_subsequence_multi_numpy {
                 slice_starts.as_slice()?,
                 ends_opt.as_slice(),
                 force_plus_strand,
+                sort_output,
             );
 
             Ok((
