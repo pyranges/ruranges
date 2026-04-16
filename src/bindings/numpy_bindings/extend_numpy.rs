@@ -7,13 +7,13 @@ macro_rules! define_extend_numpy {
     ($fname:ident, $grp_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    groups,
-                                    starts,
-                                    ends,
-                                    negative_strand,      // optional (Python requires a default)
-                                    ext_3,
-                                    ext_5
-                                ))]
+                                            groups,
+                                            starts,
+                                            ends,
+                                            negative_strand,      // optional (Python requires a default)
+                                            ext_3,
+                                            ext_5
+                                        ))]
         pub fn $fname(
             groups: PyReadonlyArray1<$grp_ty>,
             starts: PyReadonlyArray1<$pos_ty>,

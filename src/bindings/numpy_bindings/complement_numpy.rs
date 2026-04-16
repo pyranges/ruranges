@@ -8,14 +8,14 @@ macro_rules! define_complement_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
         #[pyo3(signature = (
-                                    groups,
-                                    starts,
-                                    ends,
-                                    chrom_len_ids,
-                                    chrom_lens,
-                                    slack     = 0,
-                                    include_first_interval = false
-                                ))]
+                                            groups,
+                                            starts,
+                                            ends,
+                                            chrom_len_ids,
+                                            chrom_lens,
+                                            slack     = 0,
+                                            include_first_interval = false
+                                        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
