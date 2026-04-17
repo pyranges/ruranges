@@ -13,13 +13,18 @@ macro_rules! define_boundary_numpy {
             starts: PyReadonlyArray1<$pos_ty>,
             ends: PyReadonlyArray1<$pos_ty>,
         ) -> PyResult<(
-            Py<PyArray1<u32>>,     // indices
-            Py<PyArray1<$pos_ty>>, // boundary starts
-            Py<PyArray1<$pos_ty>>, // boundary ends
-            Py<PyArray1<u32>>,     // counts
+            Py<PyArray1<u32>>,
+            Py<PyArray1<$pos_ty>>,
+            Py<PyArray1<$pos_ty>>,
+            Py<PyArray1<u32>>,
         )> {
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+
             let (idx, b_starts, b_ends, counts) =
-                sweep_line_boundary(chrs.as_slice()?, starts.as_slice()?, ends.as_slice()?);
+                py.allow_threads(|| sweep_line_boundary(chrs_s, starts_s, ends_s));
+
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 b_starts.into_pyarray(py).to_owned().into(),
@@ -30,6 +35,5 @@ macro_rules! define_boundary_numpy {
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_boundary_numpy!(boundary_numpy_u32_i32, u32, i32);
 define_boundary_numpy!(boundary_numpy_u32_i64, u32, i64);

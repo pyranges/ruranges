@@ -15,18 +15,17 @@ macro_rules! define_window_numpy {
             window_size: $pos_ty,
             py: Python<'_>,
         ) -> PyResult<(
-            Py<PyArray1<usize>>,   // indices
-            Py<PyArray1<$pos_ty>>, // windowed starts
-            Py<PyArray1<$pos_ty>>, // windowed ends
+            Py<PyArray1<usize>>,
+            Py<PyArray1<$pos_ty>>,
+            Py<PyArray1<$pos_ty>>,
         )> {
-            // NB: backend returns (starts, ends, indices)
-            let (w_starts, w_ends, idx) = window_grouped(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                negative_strand.as_slice()?,
-                window_size,
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+            let neg_s = negative_strand.as_slice()?;
+
+            let (w_starts, w_ends, idx) =
+                py.allow_threads(|| window_grouped(chrs_s, starts_s, ends_s, neg_s, window_size));
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
@@ -37,6 +36,5 @@ macro_rules! define_window_numpy {
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_window_numpy!(window_numpy_u32_i32, u32, i32);
 define_window_numpy!(window_numpy_u32_i64, u32, i64);

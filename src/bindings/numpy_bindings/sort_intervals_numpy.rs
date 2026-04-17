@@ -15,15 +15,19 @@ macro_rules! define_sort_intervals_numpy {
             sort_reverse_direction: Option<PyReadonlyArray1<bool>>,
             py: Python<'_>,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = sorts::sort_order_idx(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                match &sort_reverse_direction {
-                    Some(arr) => Some(arr.as_slice()?),
-                    None => None,
-                },
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+            // Extract optional slice while GIL is held.
+            let rev_vec: Option<Vec<bool>> = match &sort_reverse_direction {
+                Some(arr) => Some(arr.as_slice()?.to_vec()),
+                None => None,
+            };
+
+            let idx = py.allow_threads(|| {
+                sorts::sort_order_idx(chrs_s, starts_s, ends_s, rev_vec.as_deref())
+            });
+
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };
@@ -38,7 +42,8 @@ macro_rules! define_sort_groups_numpy {
             chrs: PyReadonlyArray1<$chr_ty>,
             py: Python<'_>,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = sorts::build_sorted_groups(chrs.as_slice()?);
+            let chrs_s = chrs.as_slice()?;
+            let idx = py.allow_threads(|| sorts::build_sorted_groups(chrs_s));
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };

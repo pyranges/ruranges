@@ -16,18 +16,16 @@ macro_rules! define_max_disjoint_numpy {
             sort_output: bool,
             py: Python<'_>,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = max_disjoint(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                slack,
-                sort_output,
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+
+            let idx = py.allow_threads(|| max_disjoint(chrs_s, starts_s, ends_s, slack, sort_output));
+
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_max_disjoint_numpy!(max_disjoint_numpy_u32_i32, u32, i32);
 define_max_disjoint_numpy!(max_disjoint_numpy_u32_i64, u32, i64);

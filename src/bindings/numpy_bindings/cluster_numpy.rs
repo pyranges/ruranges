@@ -15,12 +15,13 @@ macro_rules! define_cluster_numpy {
             slack: $pos_ty,
             py: Python<'_>,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>)> {
-            let (cluster_ids, idx) = sweep_line_cluster(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                slack,
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+
+            let (cluster_ids, idx) =
+                py.allow_threads(|| sweep_line_cluster(chrs_s, starts_s, ends_s, slack));
+
             Ok((
                 cluster_ids.into_pyarray(py).to_owned().into(),
                 idx.into_pyarray(py).to_owned().into(),
@@ -29,6 +30,5 @@ macro_rules! define_cluster_numpy {
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_cluster_numpy!(cluster_numpy_u32_i32, u32, i32);
 define_cluster_numpy!(cluster_numpy_u32_i64, u32, i64);

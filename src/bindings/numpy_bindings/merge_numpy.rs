@@ -20,12 +20,13 @@ macro_rules! define_merge_numpy {
             Py<PyArray1<$pos_ty>>,
             Py<PyArray1<u32>>,
         )> {
-            let (idx, m_starts, m_ends, counts) = sweep_line_merge(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                slack,
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+
+            let (idx, m_starts, m_ends, counts) =
+                py.allow_threads(|| sweep_line_merge(chrs_s, starts_s, ends_s, slack));
+
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 m_starts.into_pyarray(py).to_owned().into(),
@@ -36,6 +37,5 @@ macro_rules! define_merge_numpy {
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_merge_numpy!(merge_numpy_u32_i32, u32, i32);
 define_merge_numpy!(merge_numpy_u32_i64, u32, i64);

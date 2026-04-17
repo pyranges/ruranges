@@ -6,19 +6,7 @@ use ruranges_core::nearest::nearest;
 macro_rules! define_nearest_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
-        #[pyo3(signature = (
-            chrs,
-            starts,
-            ends,
-            chrs2,
-            starts2,
-            ends2,
-            slack = 0, // <$pos_ty>::from(0) at call-site
-            k = 1,
-            include_overlaps = true,
-            direction = "any",
-            sort_output = true,
-        ))]
+        #[pyo3(signature = (chrs, starts, ends, chrs2, starts2, ends2, slack = 0, k = 1, include_overlaps = true, direction = "any", sort_output = true))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -34,19 +22,16 @@ macro_rules! define_nearest_numpy {
             direction: &str,
             sort_output: bool,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>, Py<PyArray1<$pos_ty>>)> {
-            let (idx1, idx2, dist) = nearest(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrs2.as_slice()?,
-                starts2.as_slice()?,
-                ends2.as_slice()?,
-                slack,
-                k,
-                include_overlaps,
-                direction,
-                sort_output,
-            );
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+            let chrs2_s = chrs2.as_slice()?;
+            let starts2_s = starts2.as_slice()?;
+            let ends2_s = ends2.as_slice()?;
+
+            let (idx1, idx2, dist) = py.allow_threads(|| {
+                nearest(chrs_s, starts_s, ends_s, chrs2_s, starts2_s, ends2_s, slack, k, include_overlaps, direction, sort_output)
+            });
 
             Ok((
                 idx1.into_pyarray(py).to_owned().into(),
@@ -57,6 +42,5 @@ macro_rules! define_nearest_numpy {
     };
 }
 
-// ── concrete instantiations ────────────────────────────────────────────
 define_nearest_numpy!(nearest_numpy_u32_i32, u32, i32);
 define_nearest_numpy!(nearest_numpy_u32_i64, u32, i64);

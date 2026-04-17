@@ -20,25 +20,22 @@ macro_rules! define_chromsweep_numpy {
             sort_output: bool,
             contained: bool,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>)> {
-            let chrs_slice = chrs.as_slice()?;
-            let starts_slice = starts.as_slice()?;
-            let ends_slice = ends.as_slice()?;
-            let chrs_slice2 = chrs2.as_slice()?;
-            let starts_slice2 = starts2.as_slice()?;
-            let ends_slice2 = ends2.as_slice()?;
+            // Extract slices while GIL is held.
+            let chrs_s = chrs.as_slice()?;
+            let starts_s = starts.as_slice()?;
+            let ends_s = ends.as_slice()?;
+            let chrs2_s = chrs2.as_slice()?;
+            let starts2_s = starts2.as_slice()?;
+            let ends2_s = ends2.as_slice()?;
 
-            let (idx1, idx2) = overlaps(
-                chrs_slice,
-                starts_slice,
-                ends_slice,
-                chrs_slice2,
-                starts_slice2,
-                ends_slice2,
-                slack,
-                overlap_type,
-                sort_output,
-                contained,
-            );
+            // Release GIL for the pure-Rust sweep.
+            let (idx1, idx2) = py.allow_threads(|| {
+                overlaps(
+                    chrs_s, starts_s, ends_s, chrs2_s, starts2_s, ends2_s,
+                    slack, overlap_type, sort_output, contained,
+                )
+            });
+
             Ok((
                 idx1.into_pyarray(py).to_owned().into(),
                 idx2.into_pyarray(py).to_owned().into(),
