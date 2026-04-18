@@ -36,16 +36,13 @@ macro_rules! define_spliced_subsequence_numpy {
             Py<PyArray1<$pos_ty>>, // new ends
             Py<PyArray1<bool>>,    // strand  True='+', False='-'
         )> {
-            let (idx, new_starts, new_ends, strands) = spliced_subseq(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                strand_flags.as_slice()?,
-                start,
-                end,
-                force_plus_strand,
-                sort_output,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let strand_flags = strand_flags.as_slice()?;
+            let (idx, new_starts, new_ends, strands) = py.allow_threads(|| {
+                spliced_subseq(chrs, starts, ends, strand_flags, start, end, force_plus_strand, sort_output)
+            });
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
@@ -91,19 +88,16 @@ macro_rules! define_spliced_subsequence_multi_numpy {
             Py<PyArray1<$pos_ty>>,
             Py<PyArray1<bool>>,
         )> {
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let strand_flags = strand_flags.as_slice()?;
+            let slice_starts = slice_starts.as_slice()?;
             let ends_opt: Vec<Option<$pos_ty>> =
                 slice_ends.as_slice()?.iter().map(|&v| Some(v)).collect();
-
-            let (idx, new_starts, new_ends, strands) = spliced_subseq_multi(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                strand_flags.as_slice()?,
-                slice_starts.as_slice()?,
-                ends_opt.as_slice(),
-                force_plus_strand,
-                sort_output,
-            );
+            let (idx, new_starts, new_ends, strands) = py.allow_threads(|| {
+                spliced_subseq_multi(chrs, starts, ends, strand_flags, slice_starts, ends_opt.as_slice(), force_plus_strand, sort_output)
+            });
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),

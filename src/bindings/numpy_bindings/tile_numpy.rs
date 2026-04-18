@@ -19,12 +19,11 @@ macro_rules! define_tile_numpy {
             Py<PyArray1<$pos_ty>>, // tile ends
             Py<PyArray1<f64>>,     // overlap fraction
         )> {
-            let (t_starts, t_ends, idx, frac) = tile(
-                starts.as_slice()?,
-                ends.as_slice()?,
-                negative_strand.as_slice()?,
-                tile_size,
-            );
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let negative_strand = negative_strand.as_slice()?;
+            let (t_starts, t_ends, idx, frac) =
+                py.allow_threads(|| tile(starts, ends, negative_strand, tile_size));
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 t_starts.into_pyarray(py).to_owned().into(),

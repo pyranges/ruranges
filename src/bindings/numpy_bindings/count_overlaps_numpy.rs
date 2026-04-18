@@ -17,15 +17,15 @@ macro_rules! define_count_overlaps_numpy {
             ends2: PyReadonlyArray1<$pos_ty>,
             slack: $pos_ty,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let counts = count_overlaps(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrs2.as_slice()?,
-                starts2.as_slice()?,
-                ends2.as_slice()?,
-                slack,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
+            let counts = py.allow_threads(|| {
+                count_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack)
+            });
             Ok(counts.into_pyarray(py).to_owned().into())
         }
     };

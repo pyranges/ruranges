@@ -39,15 +39,13 @@ macro_rules! define_genome_bounds_numpy {
                 ));
             }
 
-            let (idx, new_starts, new_ends) = outside_bounds(
-                groups.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrom_lengths.as_slice()?,
-                clip,
-                only_right,
-            )
-            .map_err(PyValueError::new_err)?;
+            let groups = groups.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrom_lengths = chrom_lengths.as_slice()?;
+            let (idx, new_starts, new_ends) = py
+                .allow_threads(|| outside_bounds(groups, starts, ends, chrom_lengths, clip, only_right))
+                .map_err(PyValueError::new_err)?;
 
             // Convert the three Vecs back to NumPy arrays.
             Ok((

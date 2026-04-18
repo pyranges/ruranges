@@ -18,8 +18,11 @@ macro_rules! define_boundary_numpy {
             Py<PyArray1<$pos_ty>>, // boundary ends
             Py<PyArray1<u32>>,     // counts
         )> {
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
             let (idx, b_starts, b_ends, counts) =
-                sweep_line_boundary(chrs.as_slice()?, starts.as_slice()?, ends.as_slice()?);
+                py.allow_threads(|| sweep_line_boundary(chrs, starts, ends));
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 b_starts.into_pyarray(py).to_owned().into(),

@@ -28,16 +28,15 @@ macro_rules! define_complement_overlaps_numpy {
             slack: $pos_ty,
             sort_output: bool,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = sweep_line_non_overlaps(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrs2.as_slice()?,
-                starts2.as_slice()?,
-                ends2.as_slice()?,
-                slack,
-                sort_output,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
+            let idx = py.allow_threads(|| {
+                sweep_line_non_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack, sort_output)
+            });
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };

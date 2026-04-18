@@ -34,19 +34,15 @@ macro_rules! define_nearest_numpy {
             direction: &str,
             sort_output: bool,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>, Py<PyArray1<$pos_ty>>)> {
-            let (idx1, idx2, dist) = nearest(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrs2.as_slice()?,
-                starts2.as_slice()?,
-                ends2.as_slice()?,
-                slack,
-                k,
-                include_overlaps,
-                direction,
-                sort_output,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
+            let (idx1, idx2, dist) = py.allow_threads(|| {
+                nearest(chrs, starts, ends, chrs2, starts2, ends2, slack, k, include_overlaps, direction, sort_output)
+            });
 
             Ok((
                 idx1.into_pyarray(py).to_owned().into(),

@@ -30,15 +30,15 @@ macro_rules! define_subtract_numpy {
             Py<PyArray1<$pos_ty>>,
             Py<PyArray1<$pos_ty>>,
         )> {
-            let (idx, new_starts, new_ends) = sweep_line_subtract(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                chrs2.as_slice()?,
-                starts2.as_slice()?,
-                ends2.as_slice()?,
-                sort_output,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
+            let (idx, new_starts, new_ends) = py.allow_threads(|| {
+                sweep_line_subtract(chrs, starts, ends, chrs2, starts2, ends2, sort_output)
+            });
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),

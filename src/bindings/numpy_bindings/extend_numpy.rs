@@ -23,14 +23,12 @@ macro_rules! define_extend_numpy {
             ext_5: $pos_ty,
             py: Python<'_>,
         ) -> PyResult<(Py<PyArray1<$pos_ty>>, Py<PyArray1<$pos_ty>>)> {
-            let (new_starts, new_ends) = extend::extend_grp(
-                groups.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                negative_strand.as_slice()?,
-                ext_3,
-                ext_5,
-            );
+            let groups = groups.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let negative_strand = negative_strand.as_slice()?;
+            let (new_starts, new_ends) =
+                py.allow_threads(|| extend::extend_grp(groups, starts, ends, negative_strand, ext_3, ext_5));
 
             Ok((
                 new_starts.into_pyarray(py).to_owned().into(),

@@ -46,14 +46,12 @@ macro_rules! define_complement_numpy {
                 lens_map.insert(k, v);
             }
 
-            let (out_chrs, out_starts, out_ends, out_idx) = sweep_line_complement(
-                groups.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                slack,
-                &lens_map,
-                include_first_interval,
-            );
+            let groups = groups.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let (out_chrs, out_starts, out_ends, out_idx) = py.allow_threads(|| {
+                sweep_line_complement(groups, starts, ends, slack, &lens_map, include_first_interval)
+            });
 
             Ok((
                 out_chrs.into_pyarray(py).to_owned().into(),

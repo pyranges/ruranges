@@ -55,23 +55,25 @@ macro_rules! define_map_to_global_numpy {
             Py<PyArray1<$pos_ty>>, // genomic end
             Py<PyArray1<bool>>,    // strand (+ = True)
         )> {
-            let (idx, g_start, g_end, strand) = map_to_global(
-                /*  exons first (left triple)  */
-                ex_tx.as_slice()?,
-                ex_local_start.as_slice()?,
-                ex_local_end.as_slice()?,
-                /*  queries second (right triple)  */
-                q_tx.as_slice()?,
-                q_start.as_slice()?,
-                q_end.as_slice()?,
-                /*  extras in declared order  */
-                ex_chr_code.as_slice()?,
-                ex_genome_start.as_slice()?,
-                ex_genome_end.as_slice()?,
-                ex_fwd.as_slice()?,
-                q_fwd.as_slice()?,
-                sort_output,
-            );
+            let ex_tx = ex_tx.as_slice()?;
+            let ex_local_start = ex_local_start.as_slice()?;
+            let ex_local_end = ex_local_end.as_slice()?;
+            let q_tx = q_tx.as_slice()?;
+            let q_start = q_start.as_slice()?;
+            let q_end = q_end.as_slice()?;
+            let ex_chr_code = ex_chr_code.as_slice()?;
+            let ex_genome_start = ex_genome_start.as_slice()?;
+            let ex_genome_end = ex_genome_end.as_slice()?;
+            let ex_fwd = ex_fwd.as_slice()?;
+            let q_fwd = q_fwd.as_slice()?;
+            let (idx, g_start, g_end, strand) = py.allow_threads(|| {
+                map_to_global(
+                    ex_tx, ex_local_start, ex_local_end,
+                    q_tx, q_start, q_end,
+                    ex_chr_code, ex_genome_start, ex_genome_end, ex_fwd, q_fwd,
+                    sort_output,
+                )
+            });
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),

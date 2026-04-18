@@ -15,15 +15,14 @@ macro_rules! define_sort_intervals_numpy {
             sort_reverse_direction: Option<PyReadonlyArray1<bool>>,
             py: Python<'_>,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = sorts::sort_order_idx(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                match &sort_reverse_direction {
-                    Some(arr) => Some(arr.as_slice()?),
-                    None => None,
-                },
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let rev_dir = match &sort_reverse_direction {
+                Some(arr) => Some(arr.as_slice()?),
+                None => None,
+            };
+            let idx = py.allow_threads(|| sorts::sort_order_idx(chrs, starts, ends, rev_dir));
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };
@@ -38,7 +37,8 @@ macro_rules! define_sort_groups_numpy {
             chrs: PyReadonlyArray1<$chr_ty>,
             py: Python<'_>,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let idx = sorts::build_sorted_groups(chrs.as_slice()?);
+            let chrs = chrs.as_slice()?;
+            let idx = py.allow_threads(|| sorts::build_sorted_groups(chrs));
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };

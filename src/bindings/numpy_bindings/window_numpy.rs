@@ -19,14 +19,13 @@ macro_rules! define_window_numpy {
             Py<PyArray1<$pos_ty>>, // windowed starts
             Py<PyArray1<$pos_ty>>, // windowed ends
         )> {
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let negative_strand = negative_strand.as_slice()?;
             // NB: backend returns (starts, ends, indices)
-            let (w_starts, w_ends, idx) = window_grouped(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                negative_strand.as_slice()?,
-                window_size,
-            );
+            let (w_starts, w_ends, idx) =
+                py.allow_threads(|| window_grouped(chrs, starts, ends, negative_strand, window_size));
 
             Ok((
                 idx.into_pyarray(py).to_owned().into(),

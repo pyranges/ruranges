@@ -30,13 +30,12 @@ macro_rules! define_cumsum_numpy {
             let neg = negative_strand
                 .ok_or_else(|| PyValueError::new_err("negative_strand is required"))?;
 
-            let (idxs, cumsum_starts, cumsum_ends) = sweep_line_cumsum(
-                groups.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                neg.as_slice()?,
-                sort,
-            );
+            let groups = groups.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let neg = neg.as_slice()?;
+            let (idxs, cumsum_starts, cumsum_ends) =
+                py.allow_threads(|| sweep_line_cumsum(groups, starts, ends, neg, sort));
 
             Ok((
                 idxs.into_pyarray(py).to_owned().into(),

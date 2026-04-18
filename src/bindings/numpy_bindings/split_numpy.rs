@@ -20,13 +20,11 @@ macro_rules! define_split_numpy {
             Py<PyArray1<$pos_ty>>, // split starts
             Py<PyArray1<$pos_ty>>, // split ends
         )> {
-            let (idx, s_starts, s_ends) = sweep_line_split(
-                chrs.as_slice()?,
-                starts.as_slice()?,
-                ends.as_slice()?,
-                slack,
-                between,
-            );
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let (idx, s_starts, s_ends) =
+                py.allow_threads(|| sweep_line_split(chrs, starts, ends, slack, between));
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 s_starts.into_pyarray(py).to_owned().into(),
