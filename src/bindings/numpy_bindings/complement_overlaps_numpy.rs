@@ -6,7 +6,16 @@ use ruranges_core::complement::sweep_line_non_overlaps;
 macro_rules! define_complement_overlaps_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
-        #[pyo3(signature = (chrs, starts, ends, chrs2, starts2, ends2, slack = 0, sort_output = true))]
+        #[pyo3(signature = (
+            chrs,
+            starts,
+            ends,
+            chrs2,
+            starts2,
+            ends2,
+            slack = 0,
+            sort_output = true,
+        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -19,21 +28,20 @@ macro_rules! define_complement_overlaps_numpy {
             slack: $pos_ty,
             sort_output: bool,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            let chrs_s = chrs.as_slice()?;
-            let starts_s = starts.as_slice()?;
-            let ends_s = ends.as_slice()?;
-            let chrs2_s = chrs2.as_slice()?;
-            let starts2_s = starts2.as_slice()?;
-            let ends2_s = ends2.as_slice()?;
-
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
             let idx = py.allow_threads(|| {
-                sweep_line_non_overlaps(chrs_s, starts_s, ends_s, chrs2_s, starts2_s, ends2_s, slack, sort_output)
+                sweep_line_non_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack, sort_output)
             });
-
             Ok(idx.into_pyarray(py).to_owned().into())
         }
     };
 }
 
+// ── concrete instantiations ────────────────────────────────────────────
 define_complement_overlaps_numpy!(complement_overlaps_numpy_u32_i32, u32, i32);
 define_complement_overlaps_numpy!(complement_overlaps_numpy_u32_i64, u32, i64);

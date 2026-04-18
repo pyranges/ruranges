@@ -16,17 +16,15 @@ macro_rules! define_split_numpy {
             between: bool,
             py: Python<'_>,
         ) -> PyResult<(
-            Py<PyArray1<u32>>,
-            Py<PyArray1<$pos_ty>>,
-            Py<PyArray1<$pos_ty>>,
+            Py<PyArray1<u32>>,     // indices
+            Py<PyArray1<$pos_ty>>, // split starts
+            Py<PyArray1<$pos_ty>>, // split ends
         )> {
-            let chrs_s = chrs.as_slice()?;
-            let starts_s = starts.as_slice()?;
-            let ends_s = ends.as_slice()?;
-
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
             let (idx, s_starts, s_ends) =
-                py.allow_threads(|| sweep_line_split(chrs_s, starts_s, ends_s, slack, between));
-
+                py.allow_threads(|| sweep_line_split(chrs, starts, ends, slack, between));
             Ok((
                 idx.into_pyarray(py).to_owned().into(),
                 s_starts.into_pyarray(py).to_owned().into(),
@@ -36,5 +34,6 @@ macro_rules! define_split_numpy {
     };
 }
 
+// ── concrete instantiations ────────────────────────────────────────────
 define_split_numpy!(split_numpy_u32_i32, u32, i32);
 define_split_numpy!(split_numpy_u32_i64, u32, i64);

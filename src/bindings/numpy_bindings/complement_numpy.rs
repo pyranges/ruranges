@@ -7,7 +7,15 @@ use ruranges_core::complement_single::sweep_line_complement;
 macro_rules! define_complement_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
         #[pyfunction]
-        #[pyo3(signature = (groups, starts, ends, chrom_len_ids, chrom_lens, slack = 0, include_first_interval = false))]
+        #[pyo3(signature = (
+                                            groups,
+                                            starts,
+                                            ends,
+                                            chrom_len_ids,
+                                            chrom_lens,
+                                            slack     = 0,
+                                            include_first_interval = false
+                                        ))]
         #[allow(non_snake_case)]
         pub fn $fname(
             py: Python<'_>,
@@ -32,20 +40,17 @@ macro_rules! define_complement_numpy {
                 ));
             }
 
-            // Build the HashMap while GIL is held (cheap; uses Python-owned data).
             let mut lens_map: FxHashMap<$chr_ty, $pos_ty> =
                 FxHashMap::with_capacity_and_hasher(keys.len(), Default::default());
             for (&k, &v) in keys.iter().zip(vals.iter()) {
                 lens_map.insert(k, v);
             }
 
-            let groups_s = groups.as_slice()?;
-            let starts_s = starts.as_slice()?;
-            let ends_s = ends.as_slice()?;
-
-            // Release GIL for the sweep.
+            let groups = groups.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
             let (out_chrs, out_starts, out_ends, out_idx) = py.allow_threads(|| {
-                sweep_line_complement(groups_s, starts_s, ends_s, slack, &lens_map, include_first_interval)
+                sweep_line_complement(groups, starts, ends, slack, &lens_map, include_first_interval)
             });
 
             Ok((
@@ -58,5 +63,6 @@ macro_rules! define_complement_numpy {
     };
 }
 
+// ── concrete instantiations ───────────────────────────────────────────
 define_complement_numpy!(complement_numpy_u32_i32, u32, i32);
 define_complement_numpy!(complement_numpy_u32_i64, u32, i64);

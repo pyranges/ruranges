@@ -17,19 +17,15 @@ macro_rules! define_count_overlaps_numpy {
             ends2: PyReadonlyArray1<$pos_ty>,
             slack: $pos_ty,
         ) -> PyResult<Py<PyArray1<u32>>> {
-            // Extract slices while GIL is held.
-            let chrs_s = chrs.as_slice()?;
-            let starts_s = starts.as_slice()?;
-            let ends_s = ends.as_slice()?;
-            let chrs2_s = chrs2.as_slice()?;
-            let starts2_s = starts2.as_slice()?;
-            let ends2_s = ends2.as_slice()?;
-
-            // Release GIL for the pure-Rust sweep.
+            let chrs = chrs.as_slice()?;
+            let starts = starts.as_slice()?;
+            let ends = ends.as_slice()?;
+            let chrs2 = chrs2.as_slice()?;
+            let starts2 = starts2.as_slice()?;
+            let ends2 = ends2.as_slice()?;
             let counts = py.allow_threads(|| {
-                count_overlaps(chrs_s, starts_s, ends_s, chrs2_s, starts2_s, ends2_s, slack)
+                count_overlaps(chrs, starts, ends, chrs2, starts2, ends2, slack)
             });
-
             Ok(counts.into_pyarray(py).to_owned().into())
         }
     };
