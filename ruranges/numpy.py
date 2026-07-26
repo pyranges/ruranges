@@ -582,8 +582,11 @@ def complement(
     Returns
     -------
     out_chrs, out_starts, out_ends, out_idx
-        `out_idx` holds the 0-based index of the input interval immediately
-        **following** each gap (useful for attribution).
+        `out_chrs` holds the group each gap belongs to and is the reliable key
+        for attribution.  `out_idx` holds the 0-based index of *one* input
+        interval belonging to that group; it identifies the group, not a
+        particular member, so callers must not depend on which member is
+        reported.  Prefer `out_chrs` when mapping gaps back to per-group values.
 
     Notes
     -----
@@ -613,12 +616,11 @@ def boundary(
     NDArray[GroupIdInt],  # counts
 ]:
     """
-    Collapse adjacent/overlapping intervals into *boundary segments*.
+    Collapse each group's intervals into its outer boundary.
 
-    Each boundary represents a contiguous genomic stretch where at least one
-    interval is present.  Returns the permutation (indices) of the *first*
-    interval contributing to each boundary and how many intervals overlapped
-    the segment (*counts*).
+    Returns one row per group, spanning that group's minimum start to its
+    maximum end.  Gaps inside a group do not split the result: a group always
+    yields exactly one row.
 
     Parameters
     ----------
@@ -631,6 +633,11 @@ def boundary(
     Returns
     -------
     indices, boundary_starts, boundary_ends, counts
+        ``indices`` holds the position of *one* input interval belonging to each
+        group.  It identifies the group, not a particular member, so callers
+        must not depend on which member is reported; use it only to read values
+        that are constant across the group, such as grouping columns.
+        ``counts`` holds the number of input intervals in each group.
         All arrays are `uint32` for IDs/counts and ``RangeInt`` for
         coordinates, matching the rest of the API.
     """
