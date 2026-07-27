@@ -46,4 +46,5 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          packages: "dist/*.whl dist/*.tar.gz"
+          packages-dir: dist
+          skip-existing: true
