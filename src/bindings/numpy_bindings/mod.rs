@@ -11,6 +11,7 @@ pub mod max_disjoint_numpy;
 pub mod merge_numpy;
 pub mod nearest_numpy;
 pub mod overlaps_numpy;
+pub mod ranks_numpy;
 pub mod sort_intervals_numpy;
 pub mod spliced_subsequence_numpy;
 pub mod split_numpy;

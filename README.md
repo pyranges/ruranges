@@ -52,7 +52,10 @@ python -c "import ruranges; print(ruranges.__version__)"
 | Set algebra           | subtract                                   | A minus B                                       |
 |                       | complement                                 | gaps within chromosome bounds                   |
 |                       | merge, cluster, max\_disjoint              | collapse or filter overlaps                     |
-| Utility               | sort\_intervals, window, tile, extend, ... | assorted helpers                                |
+| Sorting               | sort\_intervals                            | row order for a (group, start, end) sort        |
+|                       | natural\_rank, lexical\_rank               | order a key column's distinct string values     |
+|                       | fold\_ranks                                | collapse several coded keys into one group id   |
+| Utility               | window, tile, extend, ...                  | assorted helpers                                |
 
 Below are the three most common calls: overlaps, nearest, subtract.
 
@@ -190,6 +193,51 @@ print(sub_ends)
 ```
 
 Because interval 1 is broken into two pieces it appears twice in idx\_keep.
+
+---
+
+## 4. Sorting by string keys
+
+`sort_intervals` sorts by `(group, start, end)`, where `group` is an integer. To
+sort by *string* keys — chromosome names, transcript ids — code each key column
+first, then fold the codes into one group id:
+
+```python
+import numpy as np
+import pandas as pd
+import ruranges
+
+chromosome = pd.array(["chr10", "chr2", "chr2", "chr10"], dtype="str")
+start = np.array([100, 300, 100, 300], dtype=np.int32)
+end = np.array([150, 350, 150, 350], dtype=np.int32)
+
+# 1. Code the key column: factorize the rows, rank the *distinct* values.
+codes, uniques = pd.factorize(chromosome, sort=False)
+rank = ruranges.numpy.natural_rank(uniques)
+group = rank[codes].astype(np.uint32)
+
+# 2. One kernel call, one gather.
+order = ruranges.numpy.sort_intervals(start, end, groups=group)
+print(chromosome[order])
+# ['chr2', 'chr2', 'chr10', 'chr10']
+```
+
+Natural order puts `chr2` before `chr10`; swap in `lexical_rank` for plain byte
+order. Ranking the distinct values rather than the rows is what makes this
+affordable — the cost is per distinct value, so 25 chromosome names cost
+nothing regardless of row count.
+
+With more than one key column, fold each column's codes into the running group
+id before the kernel call:
+
+```python
+group, cardinality = ruranges.numpy.fold_ranks(
+    group, len(uniques), strand_codes, 2
+)
+```
+
+`fold_ranks` handles the `uint32` overflow that a plain
+`group * cardinality + codes` would hit once the keys are wide enough.
 
 ---
 

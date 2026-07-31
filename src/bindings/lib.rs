@@ -25,6 +25,7 @@ use crate::numpy_bindings::max_disjoint_numpy::*;
 use crate::numpy_bindings::merge_numpy::*;
 use crate::numpy_bindings::nearest_numpy::*;
 use crate::numpy_bindings::overlaps_numpy::*;
+use crate::numpy_bindings::ranks_numpy::*;
 use crate::numpy_bindings::sort_intervals_numpy::*;
 use crate::numpy_bindings::spliced_subsequence_numpy::*;
 use crate::numpy_bindings::split_numpy::*;
@@ -72,6 +73,10 @@ fn ruranges(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(count_overlaps_numpy_u32_i32, m)?)?;
     m.add_function(wrap_pyfunction!(count_overlaps_numpy_u32_i64, m)?)?;
+
+    m.add_function(wrap_pyfunction!(natural_rank_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(lexical_rank_numpy, m)?)?;
+    m.add_function(wrap_pyfunction!(fold_ranks_numpy, m)?)?;
 
     m.add_function(wrap_pyfunction!(sort_intervals_numpy_u32_i32, m)?)?;
     m.add_function(wrap_pyfunction!(sort_intervals_numpy_u32_i64, m)?)?;

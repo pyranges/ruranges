@@ -362,6 +362,7 @@ def count_overlaps(
 def sort_intervals(
     starts: NDArray[RangeInt],
     ends: NDArray[RangeInt],
+    *,
     groups: NDArray[GroupIdInt] | None = None,
     sort_reverse_direction: NDArray[np.bool_] | None = None,
 ) -> NDArray[GroupIdInt]:
@@ -376,7 +377,10 @@ def sort_intervals(
     groups
         Optional per-row group IDs (chromosomes, contigs, …).  If supplied, the
         sort is performed *within* each group; otherwise intervals are sorted
-        globally.
+        globally.  **Keyword-only**: all three arrays are same-length integer
+        arrays, so passing them in the wrong order is otherwise undetectable —
+        which is exactly how ``pyranges1`` came to sort by ``End`` before
+        ``Start`` for two releases.
     sort_reverse_direction
         Optional boolean array (same length as *starts*) marking rows that
         should be ordered **descendingly** within their group/position tier.
@@ -399,6 +403,131 @@ def sort_intervals(
         ends=ends,
         sort_reverse_direction=sort_reverse_direction,
     )
+
+
+def natural_rank(values: Sequence[str]) -> NDArray[np.uint32]:
+    """
+    Return the position each value would occupy in natural order.
+
+    Natural order reads a string as alternating text and number runs: text runs
+    compare as text, number runs compare as numbers.  So ``t2`` sorts before
+    ``t10``, and ``chr9 < chr10 < chrM``.
+
+    This is the ordering ``sort_ranges`` applies to string keys when
+    ``natsort=True``, and it is defined once — here — so that every library
+    built on ruranges answers the same way.  It reproduces Python's
+    ``natsort.natsorted`` under default settings except that it does not
+    Unicode-normalise, so strings differing only in composed non-ASCII
+    characters may order differently; see ``ruranges_core::ranks``.
+
+    Parameters
+    ----------
+    values
+        The **distinct** values of a key column, e.g. the ``uniques`` returned
+        by :func:`pandas.factorize`.  Ranking distinct values rather than rows
+        is what makes natural ordering affordable: the cost is per distinct
+        value, not per row.
+
+    Returns
+    -------
+    ranks : NDArray[np.uint32]
+        ``ranks[i]`` is the sorted position of ``values[i]``.  Every element
+        gets its own rank; values that compare equal (``t1`` and ``t01`` do,
+        since leading zeros vanish in a number) keep their input order.
+
+    Examples
+    --------
+    >>> natural_rank(["chr10", "chr2", "chrX", "chr1"])
+    array([2, 1, 3, 0], dtype=uint32)
+    """
+    rust_mod = importlib.import_module(".ruranges", package="ruranges")
+    return rust_mod.natural_rank_numpy(list(values))
+
+
+def lexical_rank(values: Sequence[str]) -> NDArray[np.uint32]:
+    """
+    Return the position each value would occupy in byte-lexical order.
+
+    The counterpart to :func:`natural_rank` for ``natsort=False`` and for
+    generic (non-genomic) frames, which have no chromosome column and so no
+    reason to order strings naturally.  Here ``t10`` sorts before ``t9``.
+
+    Parameters
+    ----------
+    values
+        The **distinct** values of a key column.
+
+    Returns
+    -------
+    ranks : NDArray[np.uint32]
+        ``ranks[i]`` is the sorted position of ``values[i]``.
+
+    Examples
+    --------
+    >>> lexical_rank(["chr10", "chr2", "chr1"])
+    array([1, 2, 0], dtype=uint32)
+    """
+    rust_mod = importlib.import_module(".ruranges", package="ruranges")
+    return rust_mod.lexical_rank_numpy(list(values))
+
+
+def fold_ranks(
+    group: NDArray[np.uint32],
+    group_cardinality: int,
+    codes: NDArray[np.uint32],
+    codes_cardinality: int,
+) -> tuple[NDArray[np.uint32], int]:
+    """
+    Fold one key column's codes into a running group id.
+
+    A multi-key sort codes each key column separately and then collapses all but
+    the last two into the single ``groups`` argument :func:`sort_intervals`
+    takes.  This is that collapse, one column at a time.
+
+    Parameters
+    ----------
+    group
+        Codes of every key folded so far, one per row.
+    group_cardinality
+        Number of distinct values in *group*.
+    codes
+        Codes of the next key, one per row.
+    codes_cardinality
+        Number of distinct values in *codes*.
+
+    Returns
+    -------
+    folded : NDArray[np.uint32]
+        Codes ordering rows by the old key first and the new key second.
+    cardinality : int
+        Number of distinct values in *folded*, to pass back in as
+        *group_cardinality* on the next fold.
+
+    Notes
+    -----
+    ``group * codes_cardinality + codes`` overflows ``uint32`` once the keys are
+    wide enough; when it would, the combined key is re-densified instead, which
+    preserves the order and caps cardinality at the row count.
+
+    Examples
+    --------
+    >>> folded, cardinality = fold_ranks(
+    ...     np.array([0, 0, 1, 1], dtype=np.uint32), 2,
+    ...     np.array([1, 0, 1, 0], dtype=np.uint32), 2,
+    ... )
+    >>> folded
+    array([1, 0, 3, 2], dtype=uint32)
+    >>> cardinality
+    4
+    """
+    rust_mod = importlib.import_module(".ruranges", package="ruranges")
+    return rust_mod.fold_ranks_numpy(
+        _normalize_groups(group, name="group"),
+        int(group_cardinality),
+        _normalize_groups(codes, name="codes"),
+        int(codes_cardinality),
+    )
+
 
 def sort_groups(
     groups: NDArray[GroupIdInt],
