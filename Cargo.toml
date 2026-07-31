@@ -24,8 +24,3 @@ ruranges-core = { version = "0.1.12" }
 rustc-hash = "2.1.0"
 pyo3 = { version = "0.26.0", optional = false }
 numpy = { version = "0.26.0", optional = true }
-
-# Development override: `ranks` (natural/lexical ranking, shared with polaranges)
-# lands in ruranges-core 0.1.12. Drop this patch once 0.1.12 is on crates.io.
-[patch.crates-io]
-ruranges-core = { path = "../ruranges-core" }
