@@ -1,7 +1,18 @@
+use std::str::FromStr;
+
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
+use pyo3::exceptions::PyValueError;
 use pyo3::{pyfunction, Py, PyResult, Python};
 
-use ruranges_core::nearest::nearest;
+use ruranges_core::nearest::{nearest_with_ties, Ties};
+
+/// Parse `ties` here rather than letting the kernel's `FromStr` panic: a
+/// `PanicException` is not an `Exception`, so `except Exception` cannot catch
+/// it and the interpreter is aborted instead of the caller seeing an error.
+fn parse_ties(value: &str) -> PyResult<Ties> {
+    Ties::from_str(value)
+        .map_err(|_| PyValueError::new_err(format!("ties must be 'all' or 'first'; got {value:?}")))
+}
 
 macro_rules! define_nearest_numpy {
     ($fname:ident, $chr_ty:ty, $pos_ty:ty) => {
@@ -18,6 +29,7 @@ macro_rules! define_nearest_numpy {
             include_overlaps = true,
             direction = "any",
             sort_output = true,
+            ties = "all",
         ))]
         #[allow(non_snake_case)]
         pub fn $fname(
@@ -33,8 +45,9 @@ macro_rules! define_nearest_numpy {
             include_overlaps: bool,
             direction: &str,
             sort_output: bool,
+            ties: &str,
         ) -> PyResult<(Py<PyArray1<u32>>, Py<PyArray1<u32>>, Py<PyArray1<$pos_ty>>)> {
-            let (idx1, idx2, dist) = nearest(
+            let (idx1, idx2, dist) = nearest_with_ties(
                 chrs.as_slice()?,
                 starts.as_slice()?,
                 ends.as_slice()?,
@@ -46,6 +59,7 @@ macro_rules! define_nearest_numpy {
                 include_overlaps,
                 direction,
                 sort_output,
+                parse_ties(ties)?,
             );
 
             Ok((

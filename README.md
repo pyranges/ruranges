@@ -166,6 +166,12 @@ for a, b, d in zip(idx1, idx2, dist):
 
 Set direction to "forward" or "backward" to restrict to one side.
 
+Set `ties="first"` to report one neighbour per distance rather than every
+neighbour at that distance. It matters most with `include_overlaps=True`,
+where every interval a query overlaps is a neighbour at distance 0: on dense
+inputs that is the difference between one output row per query and one per
+overlapping pair.
+
 ---
 
 ## 3. subtract

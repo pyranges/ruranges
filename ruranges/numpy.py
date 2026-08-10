@@ -182,6 +182,7 @@ def nearest(
     include_overlaps: bool = True,
     direction: Literal["forward", "backward", "any"] = "any",
     sort_output: bool = True,
+    ties: Literal["all", "first"] = "all",
 ) -> tuple[NDArray[GroupIdInt], NDArray[GroupIdInt], NDArray[RangeInt]]:
     """
     Find the *k* nearest intervals from *(starts2, ends2)* for every interval
@@ -207,6 +208,14 @@ def nearest(
         • ``"forward"`` – only neighbours that start **after** the query ends
         • ``"backward"`` – only neighbours that end **before** the query starts
         • ``"any"`` (default) – both directions.
+    ties
+        How many neighbours to report when several sit at the same distance.
+        • ``"all"`` (default) – all of them, at each of the *k* distances.
+        • ``"first"`` – one of them per distance, so at most *k* rows per
+          query. Which one is unspecified, but the same input gives the same
+          answer every time. With ``include_overlaps`` this is the difference
+          between reporting every interval a query overlaps and reporting one,
+          which on dense inputs is orders of magnitude of output.
 
     Returns
     -------
@@ -218,8 +227,9 @@ def nearest(
     Raises
     ------
     ValueError
-        If the input lengths don’t match or only one of ``groups`` /
-        ``groups2`` is supplied.
+        If the input lengths don’t match, only one of ``groups`` /
+        ``groups2`` is supplied, or ``ties`` is neither ``"all"`` nor
+        ``"first"``.
     """
     return _dispatch_binary(
         "nearest_numpy",
@@ -234,6 +244,7 @@ def nearest(
         include_overlaps=include_overlaps,
         direction=direction,
         sort_output=sort_output,
+        ties=ties,
     )
 
 
