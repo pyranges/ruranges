@@ -35,6 +35,10 @@ pip install maturin
 maturin develop --release
 ```
 
+Release wheels use CPython's stable ABI with a Python 3.12 floor. One wheel per
+operating-system/architecture combination supports CPython 3.12 and newer,
+instead of publishing a separate wheel for every Python minor version.
+
 Quick check:
 ```bash
 python -c "import ruranges; print(ruranges.__version__)"
