@@ -2,49 +2,161 @@ name: Build and Publish Wheels
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified artifacts to PyPI
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  wheels:
+    name: Wheels (${{ matrix.os }} / ${{ matrix.archs }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archs: "x86_64 aarch64"
+            qemu: true
+            artifact: wheels-linux
+          - os: macos-15-intel
+            archs: "x86_64"
+            qemu: false
+            artifact: wheels-macos-x86_64
+          - os: macos-15
+            archs: "arm64"
+            qemu: false
+            artifact: wheels-macos-arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - name: Set up QEMU (for ARM64 emulation)
+      - name: Set up QEMU for Linux ARM64
+        if: matrix.qemu
         uses: docker/setup-qemu-action@v3
         with:
           platforms: "linux/arm64/v8"
 
-      - name: Install build tools (Maturin & cibuildwheel)
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install maturin cibuildwheel
+      - name: Install cibuildwheel
+        run: python -m pip install --upgrade pip cibuildwheel==4.2.0
 
-      - name: Build wheels (ManyLinux 2_28 for x86_64 & aarch64)
+      - name: Build and test wheels
         env:
-          CIBW_ARCHS: "x86_64 aarch64"                   # target architectures
-          CIBW_BUILD: "cp312-* cp313-*"                  # build only CPython 3.12 and 3.13
-          CIBW_SKIP: "pp* *-musllinux_*"                 # skip PyPy and musllinux builds
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28    # use latest ManyLinux 2_28 image (x86_64)
-          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28   # use latest ManyLinux 2_28 image (aarch64)
-          CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc  # install Rust toolchain in container
-        run: python -m cibuildwheel --platform linux --output-dir dist
+          CIBW_ARCHS: ${{ matrix.archs }}
+          CIBW_BUILD: "cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
+          CIBW_BEFORE_ALL_LINUX: dnf install -y cargo rustc
+          CIBW_TEST_REQUIRES: numpy
+          CIBW_TEST_COMMAND: >-
+            python -c "import numpy as np, ruranges.numpy as k;
+            s=np.array([1,5],dtype=np.int64); e=np.array([4,9],dtype=np.int64);
+            g=np.zeros(2,dtype=np.uint32);
+            assert len(k.merge(starts=s,ends=e,groups=g,slack=0)[0])==2;
+            print('ruranges ok')"
+        run: python -m cibuildwheel --output-dir dist
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
 
       - name: Build sdist
+        run: python -m pip install --upgrade pip build && python -m build --sdist --outdir dist
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Verify and publish
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Verify distribution set
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
-          python -m build --sdist --outdir dist
+          ls -l dist
+          python - <<'PY'
+          from pathlib import Path
+
+          dist = Path("dist")
+          files = sorted(path.name for path in dist.iterdir() if path.is_file())
+          wheels = [name for name in files if name.endswith(".whl")]
+          sdists = [name for name in files if name.endswith(".tar.gz")]
+
+          assert len(files) == 9, f"expected 9 distributions, found {len(files)}: {files}"
+          assert len(wheels) == 8, f"expected 8 wheels, found {len(wheels)}: {wheels}"
+          assert len(sdists) == 1, f"expected 1 sdist, found {len(sdists)}: {sdists}"
+
+          for python_tag in ("cp312-cp312", "cp313-cp313"):
+              expected_platforms = (
+                  "manylinux_2_28_x86_64",
+                  "manylinux_2_28_aarch64",
+              )
+              for platform_tag in expected_platforms:
+                  assert any(
+                      f"-{python_tag}-{platform_tag}.whl" in name for name in wheels
+                  ), f"missing {python_tag} {platform_tag} wheel: {wheels}"
+
+              assert any(
+                  f"-{python_tag}-macosx_" in name and name.endswith("_x86_64.whl")
+                  for name in wheels
+              ), f"missing {python_tag} macOS x86_64 wheel: {wheels}"
+              assert any(
+                  f"-{python_tag}-macosx_" in name and name.endswith("_arm64.whl")
+                  for name in wheels
+              ), f"missing {python_tag} macOS arm64 wheel: {wheels}"
+
+          print("Verified distribution set:")
+          print("\n".join(files))
+          PY
+
+      - name: Dry-run summary
+        if: ${{ !inputs.publish }}
+        run: echo "Artifacts verified; PyPI publishing was not requested."
 
       - name: Publish to PyPI
+        if: ${{ inputs.publish }}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: dist
-          skip-existing: true

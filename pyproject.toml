@@ -14,7 +14,8 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 
-version = "0.1.8"
+# Keep this synchronized with `package.version` in Cargo.toml.
+version = "0.2.7"
 
 [tool.maturin]
 module-name = "ruranges.ruranges"
@@ -30,4 +31,4 @@ manylinux = "manylinux_2_28"
 strip = true
 
 [project.urls]
-Repository = "https://github.com/pyranges/ruranges-py"
+Repository = "https://github.com/pyranges/ruranges_py"

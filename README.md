@@ -16,18 +16,18 @@ ruranges-py is the Python bindings package for `ruranges-core`, a separate Rust 
 ## Installation
 
 ```bash
-pip install ruranges-py                # PyPI
+pip install ruranges                   # PyPI
 # or
-pip install git+https://github.com/your-org/ruranges-py.git
+pip install git+https://github.com/pyranges/ruranges_py.git
 ```
 
 ### Development environment (from local checkout)
 
 ```bash
 cd ~/code
-git clone <your-remote>/ruranges-py
+git clone https://github.com/pyranges/ruranges_py.git
 
-cd ~/code/ruranges-py
+cd ruranges_py
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
@@ -39,6 +39,14 @@ Quick check:
 ```bash
 python -c "import ruranges; print(ruranges.__version__)"
 ```
+
+### Release versioning
+
+The Python distribution and its Rust extension crate are released as one
+artifact. Keep `[project].version` in `pyproject.toml` and `[package].version`
+in `Cargo.toml` identical, and update both in the same release commit. The
+publishing workflow deliberately fails if that version already exists on
+PyPI, so every release must use a new version.
 
 ---
 
