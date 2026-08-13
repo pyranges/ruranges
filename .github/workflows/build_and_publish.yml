@@ -57,7 +57,8 @@ jobs:
       - name: Build and test wheels
         env:
           CIBW_ARCHS: ${{ matrix.archs }}
-          CIBW_BUILD: "cp312-* cp313-*"
+          # abi3-py312 produces one wheel per platform for CPython >= 3.12.
+          CIBW_BUILD: "cp312-*"
           CIBW_SKIP: "*-musllinux_*"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
@@ -100,9 +101,35 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  abi3-compatibility:
+    name: ABI3 import (Python ${{ matrix.python-version }})
+    needs: wheels
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download Linux wheels
+        uses: actions/download-artifact@v8
+        with:
+          name: wheels-linux
+          path: dist
+
+      - name: Install and test the stable-ABI wheel
+        run: |
+          python -m pip install --upgrade pip numpy
+          python -m pip install --no-index --find-links dist ruranges
+          python -c "import numpy as np, ruranges.numpy as k; s=np.array([1,5],dtype=np.int64); e=np.array([4,9],dtype=np.int64); g=np.zeros(2,dtype=np.uint32); assert len(k.merge(starts=s,ends=e,groups=g,slack=0)[0])==2; print('ruranges ABI3 ok')"
+
   publish:
     name: Verify and publish
-    needs: [wheels, sdist]
+    needs: [wheels, sdist, abi3-compatibility]
     runs-on: ubuntu-latest
     steps:
       - name: Download distributions
@@ -122,28 +149,28 @@ jobs:
           wheels = [name for name in files if name.endswith(".whl")]
           sdists = [name for name in files if name.endswith(".tar.gz")]
 
-          assert len(files) == 9, f"expected 9 distributions, found {len(files)}: {files}"
-          assert len(wheels) == 8, f"expected 8 wheels, found {len(wheels)}: {wheels}"
+          assert len(files) == 5, f"expected 5 distributions, found {len(files)}: {files}"
+          assert len(wheels) == 4, f"expected 4 wheels, found {len(wheels)}: {wheels}"
           assert len(sdists) == 1, f"expected 1 sdist, found {len(sdists)}: {sdists}"
 
-          for python_tag in ("cp312-cp312", "cp313-cp313"):
-              expected_platforms = (
-                  "manylinux_2_28_x86_64",
-                  "manylinux_2_28_aarch64",
-              )
-              for platform_tag in expected_platforms:
-                  assert any(
-                      f"-{python_tag}-{platform_tag}.whl" in name for name in wheels
-                  ), f"missing {python_tag} {platform_tag} wheel: {wheels}"
+          python_tag = "cp312-abi3"
+          expected_platforms = (
+              "manylinux_2_28_x86_64",
+              "manylinux_2_28_aarch64",
+          )
+          for platform_tag in expected_platforms:
+              assert any(
+                  f"-{python_tag}-{platform_tag}.whl" in name for name in wheels
+              ), f"missing {python_tag} {platform_tag} wheel: {wheels}"
 
-              assert any(
-                  f"-{python_tag}-macosx_" in name and name.endswith("_x86_64.whl")
-                  for name in wheels
-              ), f"missing {python_tag} macOS x86_64 wheel: {wheels}"
-              assert any(
-                  f"-{python_tag}-macosx_" in name and name.endswith("_arm64.whl")
-                  for name in wheels
-              ), f"missing {python_tag} macOS arm64 wheel: {wheels}"
+          assert any(
+              f"-{python_tag}-macosx_" in name and name.endswith("_x86_64.whl")
+              for name in wheels
+          ), f"missing {python_tag} macOS x86_64 wheel: {wheels}"
+          assert any(
+              f"-{python_tag}-macosx_" in name and name.endswith("_arm64.whl")
+              for name in wheels
+          ), f"missing {python_tag} macOS arm64 wheel: {wheels}"
 
           print("Verified distribution set:")
           print("\n".join(files))
